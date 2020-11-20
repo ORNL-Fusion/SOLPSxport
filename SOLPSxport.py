@@ -1,30 +1,19 @@
 """
-This routine is used to generate new b2.transport.inputfile files for SOLPS
-that will match the experimental upstream profiles.
-
-This usually requires several iterations to match the experimental profiles well
-
-The routine "main_mdsplus" runs the sequence in the correct order and returns
-the SOLPSxport object for additional plotting and debugging if necessary
-
-Once you've figured out all of the settings you need and are iterating on a run to
-converge to the solution for transport coefficients, the routine "iterate_run" can
-be useful to do this all quickly
+This class is used by routines in 'SOLPS_match_upstream.py' to read experimental data,
+read SOLPS data, and then calculate the updated radial transport coefficients to attempt
+to match SOLPS to the experimental profiles
 
 R.S. Wilcox, J.M. Canik and J.D. Lore 2020
 contact: wilcoxr@fusion.gat.com
-
-Reference for this procedure:
-https://doi.org/10.1016/j.jnucmat.2010.11.084
 """
-
 
 import os
 import numpy as np
 import matplotlib.pyplot as plt
 
 from scipy.interpolate import interp1d
-from matplotlib.cm import get_cmap
+
+import SOLPSutils as sut
 
 plt.rcParams.update({'font.weight': 'bold'})
 plt.rcParams.update({'font.size': 16})
@@ -32,7 +21,7 @@ plt.rcParams.update({'figure.facecolor':'w'})
 plt.rcParams.update({'mathtext.default': 'regular'})
 
 eV = 1.60217662e-19
-    
+
 
 class SOLPSxport:
 
@@ -70,9 +59,7 @@ class SOLPSxport:
         Generates and reads the .last10 files (produced by running '2d_profiles', which looks
         at the last 10 time steps in the run.log file)
         """
-        from SOLPSutils import readProf
-        
-        working = self.data['workdir']
+        working = str(self.data['workdir'])
 
         olddir = os.getcwd()
         os.chdir(working)
@@ -82,12 +69,12 @@ class SOLPSxport:
             print("Calling '2d_profiles' in directory: " + working)
             os.system('2d_profiles')
 
-        rx, ne_ = readProf('ne3da.last10')
-        rx, dn_ = readProf('dn3da.last10')
-        rx, te_ = readProf('te3da.last10')
-        rx, ke_ = readProf('ke3da.last10')
-        rx, ti_ = readProf('ti3da.last10')
-        rx, ki_ = readProf('ki3da.last10')
+        rx, ne_ = sut.readProf('ne3da.last10')
+        rx, dn_ = sut.readProf('dn3da.last10')
+        rx, te_ = sut.readProf('te3da.last10')
+        rx, ke_ = sut.readProf('ke3da.last10')
+        rx, ti_ = sut.readProf('ti3da.last10')
+        rx, ki_ = sut.readProf('ki3da.last10')
         
         os.chdir(olddir)
 
@@ -181,12 +168,10 @@ class SOLPSxport:
         """
         
         if profiles_file is None:
-            from SOLPSutils import getProfDBPedFit
-            
             if verbose: print('Getting profile fit data from MDSplus server on atlas.gat.com')
             
             self.timeid = timeid
-            self.data['pedData']['fitVals'] = getProfDBPedFit(shotnum, timeid, runid)
+            self.data['pedData']['fitVals'] = sut.getProfDBPedFit(shotnum, timeid, runid)
             
         else:
             import pickle
@@ -199,10 +184,9 @@ class SOLPSxport:
     # ----------------------------------------------------------------------------------------
     
     def load_pfile(self, pfile_loc, plotit = False):
-        from SOLPSutils import read_pfile
         self.timeid = pfile_loc[pfile_loc.rfind('.')+1:]
 
-        pfile_dict = read_pfile(pfile_loc)
+        pfile_dict = sut.read_pfile(pfile_loc)
 
         psin = pfile_dict['psinorm']
         ne = pfile_dict['ne(10^20/m^3)'] * 10  # needs to be in units of 10^19/m^3
@@ -254,9 +238,6 @@ class SOLPSxport:
         """
         Get the fitted tanh profiles (need to have run loadProfDBPedFit already)
         """
-    
-        from SOLPSutils import calcTanhMulti
-        
         psiProf = np.linspace(0, psiMax, npsi+1)
         
         self.data['pedData']['fitPsiProf'] = psiProf
@@ -267,19 +248,19 @@ class SOLPSxport:
         # make ne profile
         if nemod == 'tnh0':
             necoef = self.data['pedData']['fitVals']['netnh0psi']['y']
-            neprof = calcTanhMulti(necoef,psiProf)
+            neprof = sut.calcTanhMulti(necoef,psiProf)
         elif nemod == 'tanh':
             necoef = self.data['pedData']['fitVals']['netanhpsi']['y']
-            neprof = calcTanhMulti(necoef,psiProf)
+            neprof = sut.calcTanhMulti(necoef,psiProf)
         self.data['pedData']['fitProfs']['neprof'] = neprof
             
         # make Te profile
         if temod == 'tnh0':
             tecoef = self.data['pedData']['fitVals']['tetnh0psi']['y']
-            teprof = calcTanhMulti(tecoef,psiProf)
+            teprof = sut.calcTanhMulti(tecoef,psiProf)
         elif nemod == 'tanh':
             tecoef = self.data['pedData']['fitVals']['tetanhpsi']['y']
-            teprof = calcTanhMulti(tecoef,psiProf)
+            teprof = sut.calcTanhMulti(tecoef,psiProf)
         self.data['pedData']['fitProfs']['teprof'] = teprof
         
         if ncmod == 'spl':
@@ -293,7 +274,7 @@ class SOLPSxport:
             
         elif ncmod=='tanh':
             nccoef = self.data['pedData']['fitVals']['nztanhpsi']['y']
-            ncprof = calcTanhMulti(nccoef,psiProf)
+            ncprof = sut.calcTanhMulti(nccoef,psiProf)
             self.data['pedData']['fitProfs']['ncprof'] = ncprof * neprof / 6
             
         if plotit:
@@ -326,8 +307,6 @@ class SOLPSxport:
         
         Only plots if the profiles are remapped
         """
-        from SOLPSutils import readProf
-        
         # Read in the prof*.txt files
         
         if os.path.isfile(os.path.join(prof_folder,prof_filename_prefix + '_T_D.txt')):
@@ -338,8 +317,8 @@ class SOLPSxport:
         psin = {}
         vals = {}
         for fit in profs:
-            psin_read, vals_read = readProf(prof_filename_prefix + '_' + fit + '.txt',
-                                            wdir = prof_folder)
+            psin_read, vals_read = sut.readProf(prof_filename_prefix + '_' + fit + '.txt',
+                                                wdir = prof_folder)
             psin[fit] = np.array(psin_read)
             vals[fit] = np.array(vals_read)
         
@@ -404,8 +383,6 @@ class SOLPSxport:
 
         Saves the values to dictionaries in self.data['solpsData']
         """
-
-        from SOLPSutils import loadg, B2pl
         from scipy import interpolate
 
         """
@@ -428,15 +405,15 @@ class SOLPSxport:
         """
         wdir = self.data['workdir']
 
-        dsa, crLowerLeft = B2pl('0 crx writ jxa f.y', wdir = wdir)
+        dsa, crLowerLeft = sut.B2pl('0 crx writ jxa f.y', wdir = wdir)
         # dummy, crLowerRight = B2pl('1 crx writ jxa f.y', wdir = wdir)
         # Only 2 unique psi values per cell, grab 0 and 2
-        dummy, crUpperLeft = B2pl('2 crx writ jxa f.y', wdir = wdir)  # all x inds are the same
-        dummy, czLowerLeft = B2pl('0 cry writ jxa f.y', wdir = wdir)
-        dummy, czUpperLeft = B2pl('2 cry writ jxa f.y', wdir = wdir)
+        dummy, crUpperLeft = sut.B2pl('2 crx writ jxa f.y', wdir = wdir)  # all x inds are the same
+        dummy, czLowerLeft = sut.B2pl('0 cry writ jxa f.y', wdir = wdir)
+        dummy, czUpperLeft = sut.B2pl('2 cry writ jxa f.y', wdir = wdir)
         ncells = len(dummy)
 
-        g = loadg(self.data['gfile_loc'])
+        g = sut.loadg(self.data['gfile_loc'])
         psiN = (g['psirz'] - g['simag']) / (g['sibry'] - g['simag'])
 
         dR = g['rdim'] / (g['nw'] - 1)
@@ -498,15 +475,13 @@ class SOLPSxport:
         """
         Calls b2plot to get the particle flux profiles
         """
-        from SOLPSutils import B2pl
-
         # x variable is identical for all of these
-        x_fTot, fluxTot = B2pl("fnay za m* 0 0 sumz sy m/ writ jxa f.y")
-        dummy, fluxConv = B2pl("na za m* vlay m* 0 0 sumz sy m/ writ jxa f.y")
-        dummy, na = B2pl("na 0 0 sumz writ jxa f.y")
-        dummy, hy1 = B2pl("hy1 writ jxa f.y")
-        dummy, qe = B2pl("fhey sy m/ writ jxa f.y")
-        dummy, qi = B2pl("fhiy sy m/ writ jxa f.y")
+        x_fTot, fluxTot = sut.B2pl("fnay za m* 0 0 sumz sy m/ writ jxa f.y")
+        dummy, fluxConv = sut.B2pl("na za m* vlay m* 0 0 sumz sy m/ writ jxa f.y")
+        dummy, na = sut.B2pl("na 0 0 sumz writ jxa f.y")
+        dummy, hy1 = sut.B2pl("hy1 writ jxa f.y")
+        dummy, qe = sut.B2pl("fhey sy m/ writ jxa f.y")
+        dummy, qi = sut.B2pl("fhiy sy m/ writ jxa f.y")
         
 
         for c in [fluxTot, fluxConv]:
@@ -559,11 +534,10 @@ class SOLPSxport:
         """
         Calls b2plot to get the carbon profiles
         """
-        from SOLPSutils import B2pl
 
-        x_nc, nc_solps = B2pl("na 8 zsel psy writ jxa f.y")
-        dummy, flux_carbon = B2pl("fnay 8 zsel psy writ jxa f.y")  # x variables are the same
-        dummy, vr_carbon = B2pl("vlay 8 zsel writ jxa f.y")
+        x_nc, nc_solps = sut.B2pl("na 8 zsel psy writ jxa f.y")
+        dummy, flux_carbon = sut.B2pl("fnay 8 zsel psy writ jxa f.y")  # x variables are the same
+        dummy, vr_carbon = sut.B2pl("vlay 8 zsel writ jxa f.y")
         
         for c in [flux_carbon, vr_carbon]:
             if not c:
@@ -622,7 +596,7 @@ class SOLPSxport:
     
     def calcXportCoef(self, plotit = True, Dn_min = 0.002, chie_min = 0.01, chii_min = 0.01,
                       Dn_max = 10, chie_max = 200, chii_max = 200, vrc_mag=0.0,
-                      rad_loc_for_exp_decay = 1.0, ti_decay_len = 0.015, reduce_Ti = False,
+                      rad_loc_for_exp_decay = 1.0, ti_decay_len = 0.015, reduce_Ti = True,
                       use_ratio_bc = True, debug_plots = False, verbose = False):
         """
         Calculates the transport coefficients to be written into b2.transport.inputfile
@@ -739,24 +713,32 @@ class SOLPSxport:
         tiexppsi = self.data['pedData']['fitVals']['tisplpsi']['x']
         
         if reduce_Ti:
-            saved_ratio_file_loc = '/home/wilcoxr/profiles/171558/T_D_C_ratio.txt'
+            saved_ratio_file_loc = \
+                '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt'
+
             print('Reducing T_D according to ratio of T_D / T_C from ' + saved_ratio_file_loc)
 
-            with open(saved_ratio_file_loc, 'r') as f:
-                lines = f.readlines()
+            try:
+                with open(saved_ratio_file_loc, 'r') as f:
+                    lines = f.readlines()
 
-            psin_ratio = []
-            T_DC_ratio = []  # The ratio T_D / T_C from 171558
-    
-            for line in lines:
-                elements = line.split()
-                if elements[0] != '#':
-                    psin_ratio.append(np.float(elements[0]))
-                    T_DC_ratio.append(np.float(elements[1]))
+                psin_ratio = []
+                T_DC_ratio = []  # The ratio T_D / T_C from 171558
 
-            T_ratio_fit = np.interp(tiexppsi, np.array(psin_ratio), np.array(T_DC_ratio), left = 1)
-            # if > given range, chooses endpoint
-            ti_reduced = tiexp * T_ratio_fit
+                for line in lines:
+                    elements = line.split()
+                    if elements[0] != '#':
+                        psin_ratio.append(np.float(elements[0]))
+                        T_DC_ratio.append(np.float(elements[1]))
+
+                T_ratio_fit = np.interp(tiexppsi, np.array(psin_ratio),
+                                        np.array(T_DC_ratio), left = 1)
+                # if > given range, chooses endpoint
+                ti_reduced = tiexp * T_ratio_fit
+
+            except FileNotFoundError:
+                print("Can't retrieve T_D/T_C ratio file, not reducing Ti")
+                ti_reduced = tiexp
             
             if debug_plots:
                 plt.figure()
@@ -1234,224 +1216,3 @@ class SOLPSxport:
             for i in range(len(inlines)):
                 f.write(inlines[i])
 
-# ----------------------------------------------------------------------------------------
-
-
-def main_omfit(topdir, subfolder, gfile_loc, prof_folder = None,
-               prof_filename_prefix = 'prof171558_3200',
-               new_filename = 'test.transport.inputfile',
-               use_existing_last10 = False,
-               carbon = True, plotall = False, debug_plots = False, plot_xport_coeffs = True):
-    """
-    **This has not yet been fixed to work with the current version of these codes**
-    """
-    print("WARNING: This routine is likely to break")
-    print("         Updates need to be made before it works with OMFIT")
-
-    print("Initializing SOLPSxport")
-    xp = SOLPSxport(workdir = topdir + subfolder, gfile_loc = gfile_loc, carbon_bool = carbon)
-    print("Running getSOLPSlast10Profs")
-    xp.getSOLPSlast10Profs(plotit = plotall, use_existing_last10 = use_existing_last10)
-    print("Running getProfsOMFIT")
-    xp.getProfsOMFIT(prof_folder = prof_folder, prof_filename_prefix = prof_filename_prefix,
-                     min_npsi = 100, psiMax = 1.05, plotit = plotall)
-    print("Running calcPsiVals")
-    xp.calcPsiVals(plotit = plotall)
-
-    if carbon:
-        print("Running getSOLPSCarbonProfs")
-        xp.getSOLPSCarbonProfs(plotit = plotall)
-
-    print("Running calcXportCoeff")
-    xp.calcXportCoef(plotit = plotall or plot_xport_coeffs, debug_plots = debug_plots)
-
-    print("Running writeXport")
-    xp.writeXport(new_filename = new_filename)
-
-    return xp
-
-# ----------------------------------------------------------------------------------------
-
-
-def main_mdsplus(rundir, gfile_loc, new_filename = 'new.transport.inputfile',
-                 profiles_fileloc = None, shotnum = None, ptime = '1550', prunid = 'm8099',
-                 use_existing_last10 = False, reduce_Ti = False, carbon = True,
-                 plotall = False, plot_xport_coeffs = True, Dn_min = 0.002, vrc_mag = 0.0,
-                 ti_decay_len = 0.015, verbose = False):
-    """
-    Driver for the code using Osborne profile fits saved in MDSplus
-    """
-    
-    if shotnum is None: shotnum = int(gfile_loc[-12:-6])
-    if ptime is None: ptime = int(gfile_loc[-4:])
-    
-    print("Initializing SOLPSxport")
-    xp = SOLPSxport(workdir = rundir, gfile_loc = gfile_loc, carbon_bool = carbon)
-    print("Running calcPsiVals")
-    xp.calcPsiVals(plotit = plotall)
-    print("Running getSOLPSlast10Profs")
-    xp.getSOLPSlast10Profs(plotit = plotall, use_existing_last10 = use_existing_last10)
-    xp.loadProfDBPedFit(profiles_fileloc, shotnum, ptime, prunid, verbose = True)
-    print("Populating PedFits")
-    xp.populatePedFits(nemod='tanh',temod='tanh',ncmod='spl',npsi=250,psiMax=1.05, plotit=plotall)
-    print("Getting flux profiles")
-    xp.getSOLPSfluxProfs(plotit = plotall)
-
-    if carbon:
-        print("Running getSOLPSCarbonProfs")
-        xp.getSOLPSCarbonProfs(plotit = plotall)
-
-    print("Running calcXportCoeff")
-    xp.calcXportCoef(plotit = plotall or plot_xport_coeffs, reduce_Ti = reduce_Ti, Dn_min = Dn_min,
-                     ti_decay_len = ti_decay_len, vrc_mag = vrc_mag, verbose = verbose)
-
-    print("Running writeXport")
-    xp.writeXport(new_filename = new_filename)
-    
-    return xp
-
-# ----------------------------------------------------------------------------------------
-
-
-def track_inputfile_iterations(rundir = None, carbon = True, cmap = 'viridis'):
-    """
-    Track the evolution of the b2.transport.inputfile transport
-    coefficients through and evolving transport matching job
-    
-    Append b2.transport.inputfile filenames with numbers and leave them
-    in the same run directory
-    
-    Requires everything to be on the same grid with the same species
-    """
-    from SOLPSutils import read_b2_transport_inputfile
-
-    if rundir is None:
-        print("No run directory given, selecting cwd:")
-        rundir = os.getcwd()
-        print(rundir)
-
-    cm = get_cmap(cmap)
-    
-    _, _, filenames = next(os.walk(rundir), (None, None, []))
-    inputfile_list = [fn for fn in filenames if
-                      (fn[:22] == 'b2.transport.inputfile' and fn[-1] != '~')]
-    inputfile_list.sort()
-    if len(inputfile_list[0]) == 22:  # most recent, unnumbered inputfile should be at the end
-        inputfile_list = inputfile_list[1:] + [inputfile_list[0]]
-        
-    ninfiles = len(inputfile_list)
-    
-    if rundir[-1] != '/': rundir += '/'
-    
-
-    dn_sep = np.zeros(ninfiles)
-    ki_sep = np.zeros(ninfiles)
-    ke_sep = np.zeros(ninfiles)
-    dn_bdy = np.zeros(ninfiles)
-    ki_bdy = np.zeros(ninfiles)
-    ke_bdy = np.zeros(ninfiles)
-    
-    f, ax = plt.subplots(3, sharex = 'all')
-        
-    for i in range(ninfiles):
-        
-        infile = read_b2_transport_inputfile(rundir + inputfile_list[i], carbon = carbon)
-        
-        sep_ind = np.argmin(np.abs(infile['rn']))
-        dn_sep[i] = infile['dn'][sep_ind]
-        ki_sep[i] = infile['ki'][sep_ind]
-        ke_sep[i] = infile['ke'][sep_ind]
-        dn_bdy[i] = infile['dn'][-1]
-        ki_bdy[i] = infile['ki'][-1]
-        ke_bdy[i] = infile['ke'][-1]
-
-        ax[0].plot(infile['rn'], infile['dn'], '-x', color = cm(i / (float(ninfiles) - 1)),
-                   label = inputfile_list[i][13:])
-        ax[1].plot(infile['rn'], infile['ki'], '-x', color = cm(i / (float(ninfiles) - 1)))
-        ax[2].plot(infile['rn'], infile['ke'], '-x', color = cm(i / (float(ninfiles) - 1)))
-
-    ax[0].set_ylabel('dn')
-    ax[1].set_ylabel('ki')
-    ax[2].set_ylabel('ke')
-    ax[-1].set_xlabel('rn')
-    ax[0].legend(loc='best')
-    for j in range(len(ax)):
-        ax[j].grid('on')
-        
-    plt.figure()
-    plt.plot(range(ninfiles), dn_sep, '-xk', lw=2, label = 'Dn')
-    plt.plot(range(ninfiles), ki_sep, '-ob', lw=2, label = 'ki')
-    plt.plot(range(ninfiles), ke_sep, '-or', lw=2, label = 'ke')
-    plt.legend(loc='best')
-    plt.xlabel('Iteration')
-    plt.title('Transport coefficient evolution at separatrix')
-    plt.grid('on')
-
-    plt.figure()
-    plt.plot(range(ninfiles), dn_bdy, '-xk', lw=2, label = 'Dn')
-    plt.plot(range(ninfiles), ki_bdy, '-ob', lw=2, label = 'ki')
-    plt.plot(range(ninfiles), ke_bdy, '-or', lw=2, label = 'ke')
-    plt.legend(loc='best')
-    plt.xlabel('Iteration')
-    plt.title('Transport coefficient evolution at boundary')
-    plt.grid('on')
-    
-    plt.show(block=False)
-
-# ----------------------------------------------------------------------------------------
-
-
-def increment_run(rundir, gfile_loc, new_filename = 'new.transport.inputfile',
-                  profiles_fileloc = None, shotnum = None, ptime = None, prunid = None,
-                  use_existing_last10 = False, reduce_Ti = False,
-                  carbon = True, plotall = False, plot_xport_coeffs = True,
-                  ntim_new = 100, dtim_new = '1.0e-6', Dn_min = 0.01):
-    """
-    This routine runs the main calculation of transport coefficients, then saves
-    the old b2.transport.inputfile and b2fstati files with the iteration number
-    and updates the b2mn.dat file with short time steps in preparation for the new run
-    """
-
-    olddir = os.getcwd()
-    os.chdir(rundir)
-    
-    xp = main_mdsplus(rundir = rundir, gfile_loc = gfile_loc, new_filename = new_filename,
-                      profiles_fileloc = profiles_fileloc, shotnum = shotnum, ptime = ptime,
-                      prunid = prunid, Dn_min = Dn_min, use_existing_last10 = use_existing_last10,
-                      reduce_Ti = reduce_Ti, carbon = carbon, plotall = plotall,
-                      plot_xport_coeffs = plot_xport_coeffs, verbose=False)
-    
-    allfiles = os.listdir('.')
-    all_incs = [int(i[22:]) for i in allfiles if i[:22]=='b2.transport.inputfile' and i[-1]!='~' and i[-1]!='e']
-    
-    inc_num = np.max(all_incs)
-    os.rename('b2fstati', 'b2fstati' + str(inc_num+1))
-    os.rename('b2.transport.inputfile', 'b2.transport.inputfile' + str(inc_num+1))
-    os.rename(new_filename, 'b2.transport.inputfile')
-    # os.remove('run.log')
-    for filename in allfiles:
-        if filename[-7:]=='.last10':
-            os.remove(filename)
-    # os.remove('*.last10')
-    # os.system('rm *.last10')  Doesn't work for some reason
-    
-    print('modifying b2mn.dat')
-
-    with open('b2mn.dat', 'r') as f:
-        lines = f.readlines()
-        
-    # os.rename('b2mn.dat','b2mn.dat_old')  (this looks good, so just overwrite it from now on)
-    
-    for i, line in enumerate(lines):
-        if line[:13] == "'b2mndr_ntim'":
-            lines[i] = lines[i][:35] + "'" + str(ntim_new) + "'\r\n"
-            
-        if line[:13] == "'b2mndr_dtim'":
-            lines[i] = lines[i][:35] + "'" + str(dtim_new) + "'\r\n"
-            break
-
-    with open('b2mn.dat', 'w') as f:
-        for i in range(len(lines)):
-            f.write(lines[i])
-            
-    os.chdir(olddir)

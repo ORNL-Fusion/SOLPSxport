@@ -1,8 +1,8 @@
 """
 collection of utility routines for use with other SOLPS modules
 
-Several of these routines have simpler/more robust duplicates in common libraries
-I've left those routines here but commented them out and given a good replacement option
+Several routines that used to be here have simpler/more robust duplicates in common libraries
+I've left those routines below but commented them out and given a good replacement option
 
 A. Sontag, R.S. Wilcox 2019
 """
