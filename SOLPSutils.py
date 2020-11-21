@@ -494,6 +494,137 @@ def read_b2_transport_inputfile(infileloc, carbon=True):
     else:
         return {'rn': rn, 'dn': dn, 'ki': ki, 'ke': ke}
 
+# ----------------------------------------------------------------------------------------
+
+
+def read_b2fgmtry(fileloc):
+    """
+    Modified from omfit_solps.py
+    """
+
+    with open(fileloc, 'r') as f:
+        tmp = f.read()
+    tmp = tmp.replace('\n', ' ')
+    tmp = tmp.split("*c")
+    tmp = [[f for f in x.split(' ') if f] for x in tmp]
+
+    m = {'int': int, 'real': float, 'char': str}
+
+    b2fgmtry = {}
+
+    for line in tmp[1:]:
+        if len(line) > 4:
+            b2fgmtry[line[3]] = np.array(list(map(m[line[1]], line[4:])))
+        else:
+            b2fgmtry[line[3]] = None
+
+    return b2fgmtry
+
+# ----------------------------------------------------------------------------------------
+
+
+def read_b2fstat(fileloc):
+    """
+    Modified from omfit_solps.py
+    """
+    with open(fileloc, 'r') as f:
+        lines = f.readlines()
+
+    b2fstat = {'__notes__': [], '__unhandled__': []}
+
+    # Initialize
+    data = np.array([])
+
+    translations = {'real': 'float', 'char': 'str'}
+
+    b2fstat['nx'], b2fstat['ny'], b2fstat['ns'] = 0, 0, 0
+
+    def close_field():
+        # Handle previous field
+        if n > 0:
+            print('Finishing previous field;    dat_type = "{}", n = {}, ' +
+                  'names = {}, len(names) = {}'.format(dat_type, n, names, len(names)))
+            if len(names) == 1:
+                # 2D arrays: X Y
+                if n == (b2fstat['nx'] + 2) * (b2fstat['ny'] + 2):
+                    # This is an X by Y spatial array with guard cells
+                    b2fstat[names[0]] = data.reshape(-1, b2fstat['nx'] + 2)
+                elif n == b2fstat['nx'] * b2fstat['ny']:
+                    # This is an X by Y spatial array with no guard cells
+                    b2fstat[names[0]] = data.reshape(-1, b2fstat['nx'])
+
+                # 3D arrays - X Y S
+                elif n == (b2fstat['nx'] + 2) * (b2fstat['ny'] + 2) * b2fstat['ns']:
+                    # This is an X by Y by species array with guard cells
+                    b2fstat[names[0]] = data.reshape(b2fstat['ns'], -1, b2fstat['nx'] + 2)
+                elif n == (b2fstat['nx']) * (b2fstat['ny']) * b2fstat['ns']:
+                    # This is an X by Y by species array with no guard cells
+                    b2fstat[names[0]] = data.reshape(b2fstat['ns'], -1, b2fstat['nx'])
+
+                # 3D arrays - X Y v
+                # Page 183 of the 2015 Feb 27 SOLPS manual mentions "fhe - (-1:nx, -1:ny, 0:1) real*8 array
+                # I think there's a row major vs. column major difference going on or something, but anyway,
+                # python gets the array out correctly if nx corresponds to the last axis when 2D, which is
+                # the opposite of the documentation, so the v axis with length 2 should be the first axis in
+                # python.
+                elif n == (b2fstat['nx'] + 2) * (b2fstat['ny'] + 2) * 2:
+                    # This is an X by Y by 2 (probably poloidal & radial components) array w/ guard cells.
+                    b2fstat[names[0]] = data.reshape(2, -1, b2fstat['nx'] + 2)
+                elif n == b2fstat['nx'] * b2fstat['ny'] * 2:
+                    # This is an X by Y by 2 (probably poloidal & radial components) array w/o guard cells.
+                    b2fstat[names[0]] = data.reshape(2, -1, b2fstat['nx'])
+
+                # 4D arrays - X Y S v
+                # Manual calls fna X Y v S, so it should be S v Y X here.
+                elif n == (b2fstat['nx'] + 2) * (b2fstat['ny'] + 2) * b2fstat['ns'] * 2:
+                    # This is an X by Y by species by 2 array w/ guard cells.
+                    b2fstat[names[0]] = data.reshape(b2fstat['ns'], 2, -1, b2fstat['nx'] + 2)
+                elif n == (b2fstat['nx']) * (b2fstat['ny']) * b2fstat['ns'] * 2:
+                    # This is an X by Y by species by 2 array w/o guard cells.
+                    b2fstat[names[0]] = data.reshape(b2fstat['ns'], 2, -1, b2fstat['nx'])
+
+                else:
+                    # Can't identify higher dims of this or it is just 1D, so don't mess with it
+                    b2fstat[names[0]] = data
+            elif len(names) == n:
+                for ii, name in enumerate(names):
+                    b2fstat[name] = data[ii]
+            else:
+                print('WARNING! Problem parsing b2fstate or b2fstati in omfit_solps class: ' +
+                      'Cannot handle more than one name unless length of names matches length' +
+                      ' of data!')
+                b2fstat['__unhandled__'] += [{'names': names, 'data': data}]
+
+    cflines = []
+    for i, line in enumerate(lines):
+        if line.startswith('*cf:'):
+            cflines += [i]
+
+    cflines += [len(lines)]
+
+    if cflines[0] > 0:
+        print('    Found header line(s), adding to notes: {}'.format(lines[: cflines[0]]))
+        b2fstat['__notes__'] += [line.split('\n')[0] for line in lines[: cflines[0]]]
+
+    for i in range(len(cflines) - 1):
+        print('Setting up field: {}'.format(lines[cflines[i]].split('\n')[0]))
+        dat_type_string = lines[cflines[i]].split()[1].strip()
+        dat_type_string = translations.get(dat_type_string, dat_type_string)
+        dat_type = eval(dat_type_string)
+        n = int(lines[cflines[i]].split()[2])
+        names = lines[cflines[i]].split()[3].split(',')
+        print('   dat_type = "{}" / "{}", n = {}, names = {}, len(names) = {}'.format(
+              dat_type_string, dat_type, n, names, len(names)),)
+
+        raw = lines[cflines[i] + 1: cflines[i + 1]]
+        if dat_type_string != 'char':
+            data = np.array(' '.join(raw).split()).astype(dat_type)
+        else:
+            data = lines[cflines[i] + 1].split('\n')[0][1:]
+        close_field()
+
+    return b2fstat
+
 
 # ----------------------------------------------------------------------------------------
 # def shift(arr,ns):
