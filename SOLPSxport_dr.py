@@ -47,9 +47,9 @@ plt.rcParams.update({'mathtext.default': 'regular'})
 # ----------------------------------------------------------------------------------------
 
 
-def main_mdsplus(rundir, gfile_loc, new_filename='new.transport.inputfile',
+def main_mdsplus(rundir, gfile_loc, new_filename='b2.transport.inputfile_new',
                  profiles_fileloc=None, shotnum=None, ptime=None, prunid=None,
-                 psinMax=1.2, nefit='tanh', tefit='tanh', ncfit='spl',
+                 nefit='tanh', tefit='tanh', ncfit='spl',
                  Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015,
                  use_existing_last10=False, reduce_Ti=True, carbon=True,
                  plot_xport_coeffs=True, plotall=False, verbose=False):
@@ -63,7 +63,6 @@ def main_mdsplus(rundir, gfile_loc, new_filename='new.transport.inputfile',
                         fit coefficients (produced by getProfDBPedFit from SOLPSutils)
       shotnum,ptime,prunid  Profile identifying shot number, timeid and runid (from Tom's tools)
                         (this is uneccessary if you have a .pkl file given in profiles_fileloc)
-      psinMax           Largest value of psin of SOLPS grid in SOL (to populate fit functions)
       xxfit             Fit function used in each profile fit (xx => ne, te and nc)
       Dn_min            Set a floor for the allowable particle diffusion coefficient
       vrc_mag           Hard-coded carbon impurity pinch, for trying to match nC profiles
@@ -98,8 +97,7 @@ def main_mdsplus(rundir, gfile_loc, new_filename='new.transport.inputfile',
     xp.getSOLPSlast10Profs(plotit=plotall, use_existing_last10=use_existing_last10)
     xp.loadProfDBPedFit(profiles_fileloc, shotnum, ptime, prunid, verbose=True)
     print("Populating PedFits")
-    xp.populatePedFits(nemod=nefit, temod=tefit, ncmod=ncfit, npsi=250, psiMax=psinMax,
-                       plotit=plotall)
+    xp.populatePedFits(nemod=nefit, temod=tefit, ncmod=ncfit, npsi=250, plotit=plotall)
     print("Getting flux profiles")
     xp.getSOLPSfluxProfs(plotit=plotall)
 
@@ -121,7 +119,7 @@ def main_mdsplus(rundir, gfile_loc, new_filename='new.transport.inputfile',
 
 def main_omfit(topdir, subfolder, gfile_loc, prof_folder = None,
                prof_filename_prefix = 'prof171558_3200',
-               new_filename = 'test.transport.inputfile',
+               new_filename = 'b2.transport.inputfile_new',
                use_existing_last10 = False,
                carbon = True, plotall = False, debug_plots = False, plot_xport_coeffs = True):
     """
@@ -155,7 +153,7 @@ def main_omfit(topdir, subfolder, gfile_loc, prof_folder = None,
 # ----------------------------------------------------------------------------------------
 
 
-def increment_run(rundir, gfile_loc, new_filename = 'new.transport.inputfile',
+def increment_run(rundir, gfile_loc, new_filename = 'b2.transport.inputfile_new',
                   profiles_fileloc = None, shotnum = None, ptime = None, prunid = None,
                   use_existing_last10 = False, reduce_Ti = False,
                   carbon = True, plotall = False, plot_xport_coeffs = True,
@@ -176,7 +174,8 @@ def increment_run(rundir, gfile_loc, new_filename = 'new.transport.inputfile',
                       plot_xport_coeffs = plot_xport_coeffs, verbose=False)
     
     allfiles = os.listdir('.')
-    all_incs = [int(i[22:]) for i in allfiles if i[:22]=='b2.transport.inputfile' and i[-1]!='~' and i[-1]!='e']
+    all_incs = [int(i[22:]) for i in allfiles if i[:22] == 'b2.transport.inputfile' and
+                i[-1] != '~' and i[-1] != 'e' and i[-4:] != '_new']
     
     inc_num = np.max(all_incs)
     os.rename('b2fstati', 'b2fstati' + str(inc_num+1))
@@ -184,7 +183,7 @@ def increment_run(rundir, gfile_loc, new_filename = 'new.transport.inputfile',
     os.rename(new_filename, 'b2.transport.inputfile')
     # os.remove('run.log')
     for filename in allfiles:
-        if filename[-7:]=='.last10':
+        if filename[-7:] == '.last10':
             os.remove(filename)
     # os.remove('*.last10')
     # os.system('rm *.last10')  Doesn't work for some reason

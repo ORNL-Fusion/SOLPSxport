@@ -234,11 +234,23 @@ class SOLPSxport:
     # ----------------------------------------------------------------------------------------
     
     def populatePedFits(self, nemod='tanh', temod='tanh', ncmod='spl',
-                        npsi=250, psiMax=1.05, plotit=False):
+                        npsi=250, psinMax=None, plotit=False):
         """
         Get the fitted tanh profiles (need to have run loadProfDBPedFit already)
+
+        Inputs:
+          XXmod   Fit used for each parameter
+          npsi    Number of points to populate full radial fit, from psin=0 (linearly distributed)
+          psinMax End of radial grid to populate, in units of psin
+                  (this defaults to be slightly larger than the SOLPS grid if nothing is given)
         """
-        psiProf = np.linspace(0, psiMax, npsi+1)
+        if psinMax is None:
+            if 'psiSOLPS' in self.data['solpsData'].keys():
+                psinMax = np.max(self.data['solpsData']['psiSOLPS']) + 0.001
+            else:
+                psinMax = 1.02
+
+        psiProf = np.linspace(0, psinMax, npsi+1)
         
         self.data['pedData']['fitPsiProf'] = psiProf
         self.data['pedData']['fitProfs'] = {}
@@ -272,7 +284,7 @@ class SOLPSxport:
         
             self.data['pedData']['fitProfs']['ncprof'] = zfzfunc(psiProf) * neprof / 6
             
-        elif ncmod=='tanh':
+        elif ncmod == 'tanh':
             nccoef = self.data['pedData']['fitVals']['nztanhpsi']['y']
             ncprof = sut.calcTanhMulti(nccoef,psiProf)
             self.data['pedData']['fitProfs']['ncprof'] = ncprof * neprof / 6
@@ -290,11 +302,104 @@ class SOLPSxport:
             ax[1].set_ylabel('T$_e$ (keV)')
             ax[1].grid('on')
             ax[1].set_xlabel('$\psi_n$')
-            ax[1].set_xlim([0, psiMax+0.01])
+            ax[1].set_xlim([0, psinMax+0.01])
             
             ax[0].set_title('Experimental Pedestal Fits')
             
             plt.show(block = False)
+
+    # ----------------------------------------------------------------------------------------
+
+    def modify_ti(self, sol_points = None, max_psin = 1.1, decay_length = 0.015,
+                  rad_loc_for_exp_decay = 1.0, reduce_ti = True, ti_min = 1, plotit = False):
+        """
+        Manually modify the Ti profile to be more realistic
+
+        CER measures C+6, the temperature of which can differ significantly from
+        the main ion species in the edge.
+
+        Inputs:
+          sol_points   Number of extra points to add in the SOL
+          max_psi      sol_points will be evenly distributed between rad_loc_for_exp_decay
+                       and max_psi
+          decay_length Decay length for exponential falloff imposed into SOL (in units of psin)
+          reduce_ti    Use a profile from a single comparison case of T_D vs T_C+6
+                       to reduce the "measured" value of T_D to be more realistic
+          ti_min       Ti decays exponentially to this value (in eV)
+        """
+
+        tiexp = self.data['pedData']['fitVals']['tisplpsi']['y']
+        tiexppsi = self.data['pedData']['fitVals']['tisplpsi']['x']
+
+        ti_mod = tiexp.copy()
+        xrad = tiexppsi.copy()
+
+        if reduce_ti:
+            saved_ratio_file_loc = \
+                '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt'
+
+            print('Reducing T_D according to ratio of T_D / T_C from ' + saved_ratio_file_loc)
+
+            try:
+                with open(saved_ratio_file_loc, 'r') as f:
+                    lines = f.readlines()
+
+                psin_ratio = []
+                T_DC_ratio = []  # The ratio T_D / T_C from 171558
+
+                for line in lines:
+                    elements = line.split()
+                    if elements[0] != '#':
+                        psin_ratio.append(np.float(elements[0]))
+                        T_DC_ratio.append(np.float(elements[1]))
+
+                T_ratio_fit = np.interp(tiexppsi, np.array(psin_ratio),
+                                        np.array(T_DC_ratio), left=1)
+                # if > given range, chooses endpoint
+                ti_reduced = tiexp * T_ratio_fit
+
+            except FileNotFoundError:
+                print("Can't retrieve T_D/T_C ratio file, not reducing Ti")
+                ti_reduced = tiexp
+
+            ti_mod = ti_reduced
+
+
+        # Modify Ti profile to decay exponentially outside separatrix
+        if decay_length is not None:
+            outer_inds = np.where(tiexppsi >= rad_loc_for_exp_decay)[0]
+            val_at_exp_decay_start = np.interp(rad_loc_for_exp_decay, tiexppsi, ti_mod)
+
+            if sol_points is not None:
+                xrad = np.delete(xrad, outer_inds)
+                ti_mod = np.delete(ti_mod, outer_inds)
+
+                extra_points = np.linspace(rad_loc_for_exp_decay, max_psin, sol_points + 1)
+                xrad = np.append(xrad, extra_points)
+                outer_inds = np.where(xrad >= rad_loc_for_exp_decay)[0]
+                ti_mod = np.append(ti_mod, np.ones(sol_points + 1))
+
+            ti_mod[outer_inds] = (val_at_exp_decay_start - ti_min * 1e-3) * \
+                np.exp(-(xrad[outer_inds]-rad_loc_for_exp_decay) / decay_length) + ti_min * 1e-3
+
+        if plotit:
+            psi_TS = self.data['pedData']['fitPsiProf']
+            teexp = self.data['pedData']['fitProfs']['teprof']
+
+            plt.figure()
+            plt.plot(psi_TS, teexp, 'g', lw=1, label = 'T$_e$ (TS)')
+            plt.plot(tiexppsi, tiexp, '--sk', lw=2, label='T$_{C+6}$ (CER)')
+            if reduce_ti:
+                plt.plot(tiexppsi, ti_reduced, '-xr', ms=8, mew=2, lw=2,
+                         label='T$_D$ (inferred)')
+            plt.plot(xrad, ti_mod, '-ob', lw=3, label = 'Final T$_D$')
+            plt.xlabel('$\psi_n$')
+            plt.ylabel('T$_i$ (keV)')
+            plt.legend(loc='best')
+            plt.grid('on')
+            plt.show(block=False)
+
+        self.data['pedData']['fitVals']['ti_mod'] = {'x':xrad, 'y':ti_mod}
 
     # ----------------------------------------------------------------------------------------
         
@@ -596,7 +701,7 @@ class SOLPSxport:
     
     def calcXportCoef(self, plotit = True, Dn_min = 0.002, chie_min = 0.01, chii_min = 0.01,
                       Dn_max = 10, chie_max = 200, chii_max = 200, vrc_mag=0.0,
-                      rad_loc_for_exp_decay = 1.0, ti_decay_len = 0.015, reduce_Ti = True,
+                      ti_decay_len = 0.015, reduce_Ti = True,
                       use_ratio_bc = True, debug_plots = False, verbose = False):
         """
         Calculates the transport coefficients to be written into b2.transport.inputfile
@@ -604,6 +709,8 @@ class SOLPSxport:
         Requires experimental profiles to have already been saved to self.data
 
         Inputs:
+          ti_decay_len: Decay length for exponential falloff outside separatrix (units of psin)
+                        (set to None to skip this)
           reduce_Ti:    Use a saved array to get the ratio between T_C (measured) and T_i
                         This ratio was calculated from Shaun Haskey's T_D measurements
                         for 171558 @ 3200 ms
@@ -708,55 +815,18 @@ class SOLPSxport:
         # kenew_flux[-1] = kenew_flux[-2]
         
         # Ti and ki
-    
-        tiexp = 1.0e3*self.data['pedData']['fitVals']['tisplpsi']['y']
-        tiexppsi = self.data['pedData']['fitVals']['tisplpsi']['x']
-        
-        if reduce_Ti:
-            saved_ratio_file_loc = \
-                '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt'
 
-            print('Reducing T_D according to ratio of T_D / T_C from ' + saved_ratio_file_loc)
+        if reduce_Ti or (ti_decay_len is not None):
+            self.modify_ti(sol_points = 10, max_psin = np.max(psi_solps) + 0.001,
+                           decay_length = ti_decay_len, rad_loc_for_exp_decay = 1.0,
+                           plotit = debug_plots)
 
-            try:
-                with open(saved_ratio_file_loc, 'r') as f:
-                    lines = f.readlines()
+            tiexp = 1.0e3*self.data['pedData']['fitVals']['ti_mod']['y']
+            tiexppsi = self.data['pedData']['fitVals']['ti_mod']['x']
 
-                psin_ratio = []
-                T_DC_ratio = []  # The ratio T_D / T_C from 171558
-
-                for line in lines:
-                    elements = line.split()
-                    if elements[0] != '#':
-                        psin_ratio.append(np.float(elements[0]))
-                        T_DC_ratio.append(np.float(elements[1]))
-
-                T_ratio_fit = np.interp(tiexppsi, np.array(psin_ratio),
-                                        np.array(T_DC_ratio), left = 1)
-                # if > given range, chooses endpoint
-                ti_reduced = tiexp * T_ratio_fit
-
-            except FileNotFoundError:
-                print("Can't retrieve T_D/T_C ratio file, not reducing Ti")
-                ti_reduced = tiexp
-            
-            if debug_plots:
-                plt.figure()
-                plt.plot(tiexppsi, tiexp/1e3, '--k', lw=2, label = 'T$_C$')
-                plt.plot(tiexppsi, ti_reduced/1e3, 'r', lw=2, label = 'T$_D$ (inferred)')
-                plt.xlabel('$\psi_n$')
-                plt.ylabel('T$_i$ (keV)')
-                plt.legend(loc='best')
-                
-            tiexp = ti_reduced
-                
-        
-        # Modify Ti profile to decay exponentially outside separatrix
-        timin = 1.0
-        sep_ind = np.argmin(np.abs(tiexppsi - rad_loc_for_exp_decay))
-        tiexp[sep_ind:] = (tiexp[sep_ind] - timin) * \
-            np.exp(-(tiexppsi[sep_ind:]-tiexppsi[sep_ind]) / ti_decay_len) + timin
-        
+        else:
+            tiexp = 1.0e3*self.data['pedData']['fitVals']['tisplpsi']['y']
+            tiexppsi = self.data['pedData']['fitVals']['tisplpsi']['x']
         
         dsa_tiprofile = psi_to_dsa_func(tiexppsi)
         
@@ -765,7 +835,6 @@ class SOLPSxport:
         
 
         gtiexp_dsafunc = interp1d(dsa_tiprofile, gtiexp, kind='linear', fill_value = 'extrapolate')
-        # only very minor extrapolation should be required, like: 1.02 vs 1.02005657
 
         gtiexp_solpslocs = gtiexp_dsafunc(dsa)
         
@@ -837,7 +906,7 @@ class SOLPSxport:
                                                'vr_carbon': vr_carbon, 'D_carbon': D_carbon,
                                                'limits': coef_limits}
         if plotit:
-            self.plotXportCoef(tiexp)
+            self.plotXportCoef(ti_mod_used = (reduce_Ti or (ti_decay_len is not None)))
 
         if debug_plots:
             plt.figure()
@@ -868,7 +937,7 @@ class SOLPSxport:
 
     # ----------------------------------------------------------------------------------------
 
-    def plotXportCoef(self, tiexp = None):
+    def plotXportCoef(self, ti_mod_used = True):
         """
         Plot the upstream profiles from SOLPS compared to the experiment
         along with the corresponding updated transport coefficients
@@ -885,8 +954,11 @@ class SOLPSxport:
         psi_data_fit = self.data['pedData']['fitPsiProf']
         neexp = 1.0e20 * self.data['pedData']['fitProfs']['neprof']
         teexp = 1.0e3 * self.data['pedData']['fitProfs']['teprof']
-        tiexppsi = self.data['pedData']['fitVals']['tisplpsi']['x']
-        if tiexp is None:
+        if ti_mod_used:
+            tiexp = 1.0e3*self.data['pedData']['fitVals']['ti_mod']['y']
+            tiexppsi = self.data['pedData']['fitVals']['ti_mod']['x']
+        else:
+            tiexppsi = self.data['pedData']['fitVals']['tisplpsi']['x']
             tiexp = self.data['pedData']['fitVals']['tisplpsi']['y']
 
 
@@ -1074,7 +1146,7 @@ class SOLPSxport:
     
     # ----------------------------------------------------------------------------------------
     
-    def writeXport(self, new_filename = 'new.transport.inputfile', solps5_0 = False):
+    def writeXport(self, new_filename = 'b2.transport.inputfile_new', solps5_0 = False):
         """
         Write the b2.transport.inputfile using values saved in this object
         """
