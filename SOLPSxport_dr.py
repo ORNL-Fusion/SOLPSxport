@@ -50,7 +50,7 @@ plt.rcParams.update({'mathtext.default': 'regular'})
 def main_mdsplus(rundir, gfile_loc, new_filename='b2.transport.inputfile_new',
                  profiles_fileloc=None, shotnum=None, ptime=None, prunid=None,
                  nefit='tanh', tefit='tanh', ncfit='spl',
-                 Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015,
+                 Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=10,
                  use_existing_last10=False, reduce_Ti=True, carbon=True,
                  plot_xport_coeffs=True, plotall=False, verbose=False):
     """
@@ -65,6 +65,7 @@ def main_mdsplus(rundir, gfile_loc, new_filename='b2.transport.inputfile_new',
                         (this is uneccessary if you have a .pkl file given in profiles_fileloc)
       xxfit             Fit function used in each profile fit (xx => ne, te and nc)
       Dn_min            Set a floor for the allowable particle diffusion coefficient
+      Dn_max            Set a maximum for the allowable particle diffusion coefficient
       vrc_mag           Hard-coded carbon impurity pinch, for trying to match nC profiles
                         (leave zero unless you also change the function within calcXportCoeffs)
       ti_decay_len      Decay length (at the outboard midplane) for imposed exponential falloff
@@ -107,7 +108,7 @@ def main_mdsplus(rundir, gfile_loc, new_filename='b2.transport.inputfile_new',
 
     print("Running calcXportCoeff")
     xp.calcXportCoef(plotit=plotall or plot_xport_coeffs, reduce_Ti=reduce_Ti, Dn_min=Dn_min,
-                     ti_decay_len=ti_decay_len, vrc_mag=vrc_mag, verbose=verbose)
+                     ti_decay_len=ti_decay_len, vrc_mag=vrc_mag, verbose=verbose, Dn_max=Dn_max)
 
     print("Running writeXport")
     xp.writeXport(new_filename=new_filename)
