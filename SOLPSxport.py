@@ -1170,7 +1170,7 @@ class SOLPSxport:
         
         # Step the boundary points out a tiny bit so that they are
         # interpolated onto the SOLPS grid correctly
-        delta_step = 0.5*np.min(np.abs(np.diff(rn)))
+        delta_step = 0.001*np.min(np.abs(np.diff(rn)))
         
         # Remove any small negative diffusivities and throw a warning
         
