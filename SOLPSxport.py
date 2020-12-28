@@ -699,7 +699,7 @@ class SOLPSxport:
     
     # ----------------------------------------------------------------------------------------
     
-    def calcXportCoef(self, plotit = True, Dn_min = 0.002, chie_min = 0.01, chii_min = 0.01,
+    def calcXportCoef(self, plotit = True, Dn_min = 0.001, chie_min = 0.01, chii_min = 0.01,
                       Dn_max = 10, chie_max = 200, chii_max = 200, vrc_mag=0.0,
                       ti_decay_len = 0.015, reduce_Ti = True,
                       use_ratio_bc = True, debug_plots = False, verbose = False):

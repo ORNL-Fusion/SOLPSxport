@@ -51,6 +51,7 @@ def main_mdsplus(rundir, gfile_loc, new_filename='b2.transport.inputfile_new',
                  profiles_fileloc=None, shotnum=None, ptime=None, prunid=None,
                  nefit='tanh', tefit='tanh', ncfit='spl',
                  Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=10,
+                 chie_min = 0.01, chii_min = 0.01, chie_max = 200, chii_max = 200,
                  use_existing_last10=False, reduce_Ti=True, carbon=True,
                  plot_xport_coeffs=True, plotall=False, verbose=False):
     """
@@ -108,7 +109,8 @@ def main_mdsplus(rundir, gfile_loc, new_filename='b2.transport.inputfile_new',
 
     print("Running calcXportCoeff")
     xp.calcXportCoef(plotit=plotall or plot_xport_coeffs, reduce_Ti=reduce_Ti, Dn_min=Dn_min,
-                     ti_decay_len=ti_decay_len, vrc_mag=vrc_mag, verbose=verbose, Dn_max=Dn_max)
+                     ti_decay_len=ti_decay_len, vrc_mag=vrc_mag, verbose=verbose, Dn_max=Dn_max,
+                     chii_min=chii_min, chii_max=chii_max, chie_min=chie_min, chie_max=chie_max)
 
     print("Running writeXport")
     xp.writeXport(new_filename=new_filename)
