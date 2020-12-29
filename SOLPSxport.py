@@ -699,7 +699,7 @@ class SOLPSxport:
     
     # ----------------------------------------------------------------------------------------
     
-    def calcXportCoef(self, plotit = True, Dn_min = 0.002, chie_min = 0.01, chii_min = 0.01,
+    def calcXportCoef(self, plotit = True, Dn_min = 0.001, chie_min = 0.01, chii_min = 0.01,
                       Dn_max = 10, chie_max = 200, chii_max = 200, vrc_mag=0.0,
                       ti_decay_len = 0.015, reduce_Ti = True,
                       use_ratio_bc = True, debug_plots = False, verbose = False):
@@ -776,10 +776,8 @@ class SOLPSxport:
             dnew_flux[-1] = dold[-1] * neold[-1] / expden_dsa_func(dsa[-1])
         
 
-        dnew_ratio[0] = dnew_ratio[1]  # gaurd cells
+        dnew_ratio[0] = dnew_ratio[1]
         dnew_flux[0] = dnew_flux[1]
-        # dnew_ratio[-1] = dnew_ratio[-2]
-        # dnew_flux[-1] = dnew_flux[-2]
         
 
         # Te and ke
@@ -811,8 +809,6 @@ class SOLPSxport:
 
         kenew_ratio[0] = kenew_ratio[1]   # gaurd cells
         kenew_flux[0] = kenew_flux[1]
-        # kenew_ratio[-1] = kenew_ratio[-2]
-        # kenew_flux[-1] = kenew_flux[-2]
         
         # Ti and ki
 
@@ -854,8 +850,6 @@ class SOLPSxport:
 
         kinew_ratio[0] = kinew_ratio[1]   # gaurd cells
         kinew_flux[0] = kinew_flux[1]
-        # kinew_ratio[-1] = kinew_ratio[-2]
-        # kinew_flux[-1] = kinew_flux[-2]
         
         
         # Apply constraints
@@ -1170,7 +1164,7 @@ class SOLPSxport:
         
         # Step the boundary points out a tiny bit so that they are
         # interpolated onto the SOLPS grid correctly
-        delta_step = 0.001*np.min(np.abs(np.diff(rn)))
+        delta_step = 0.0001*np.min(np.abs(np.diff(rn)))
         
         # Remove any small negative diffusivities and throw a warning
         

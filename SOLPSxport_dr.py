@@ -50,7 +50,8 @@ plt.rcParams.update({'mathtext.default': 'regular'})
 def main_mdsplus(rundir, gfile_loc, new_filename='b2.transport.inputfile_new',
                  profiles_fileloc=None, shotnum=None, ptime=None, prunid=None,
                  nefit='tanh', tefit='tanh', ncfit='spl',
-                 Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=10, chie_max=200,
+                 Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=10,
+                 chie_min = 0.01, chii_min = 0.01, chie_max = 200, chii_max = 200,
                  use_existing_last10=False, reduce_Ti=True, carbon=True,
                  plot_xport_coeffs=True, plotall=False, verbose=False):
     """
@@ -110,7 +111,7 @@ def main_mdsplus(rundir, gfile_loc, new_filename='b2.transport.inputfile_new',
     print("Running calcXportCoeff")
     xp.calcXportCoef(plotit=plotall or plot_xport_coeffs, reduce_Ti=reduce_Ti, Dn_min=Dn_min,
                      ti_decay_len=ti_decay_len, vrc_mag=vrc_mag, verbose=verbose, Dn_max=Dn_max,
-                     chie_max=chie_max)
+                     chii_min=chii_min, chii_max=chii_max, chie_min=chie_min, chie_max=chie_max)
 
     print("Running writeXport")
     xp.writeXport(new_filename=new_filename)
@@ -148,7 +149,7 @@ def main_omfit(topdir, subfolder, gfile_loc, prof_folder = None,
     print("Running calcXportCoeff")
     xp.calcXportCoef(plotit = plotall or plot_xport_coeffs, debug_plots = debug_plots)
 
-    print("Running writeXport")
+    print("Writing to " + new_filename)
     xp.writeXport(new_filename = new_filename)
 
     return xp
@@ -158,13 +159,15 @@ def main_omfit(topdir, subfolder, gfile_loc, prof_folder = None,
 
 def increment_run(rundir, gfile_loc, new_filename = 'b2.transport.inputfile_new',
                   profiles_fileloc = None, shotnum = None, ptime = None, prunid = None,
-                  use_existing_last10 = False, reduce_Ti = False,
+                  use_existing_last10 = False, reduce_Ti = True,
                   carbon = True, plotall = False, plot_xport_coeffs = True,
-                  ntim_new = 100, dtim_new = '1.0e-6', Dn_min = 0.01):
+                  ntim_new = 100, dtim_new = '1.0e-6', Dn_min = 0.0005):
     """
     This routine runs the main calculation of transport coefficients, then saves
     the old b2.transport.inputfile and b2fstati files with the iteration number
     and updates the b2mn.dat file with short time steps in preparation for the new run
+
+    Hide input files from this routine by using '_' in the filename after 'b2.transport.inputfile'
     """
 
     olddir = os.getcwd()
@@ -178,18 +181,18 @@ def increment_run(rundir, gfile_loc, new_filename = 'b2.transport.inputfile_new'
     
     allfiles = os.listdir('.')
     all_incs = [int(i[22:]) for i in allfiles if i[:22] == 'b2.transport.inputfile' and
-                i[-1] != '~' and i[-1] != 'e' and i[-4:] != '_new']
+                i[-1] != '~' and i[-1] != 'e' and i[22] != '_']
     
     inc_num = np.max(all_incs)
     os.rename('b2fstati', 'b2fstati' + str(inc_num+1))
     os.rename('b2.transport.inputfile', 'b2.transport.inputfile' + str(inc_num+1))
     os.rename(new_filename, 'b2.transport.inputfile')
-    # os.remove('run.log')
+    # os.remove('run.log')  # Leave this in case there was a mistake or you want to make changes
     for filename in allfiles:
         if filename[-7:] == '.last10':
             os.remove(filename)
     # os.remove('*.last10')
-    # os.system('rm *.last10')  Doesn't work for some reason
+    # os.system('rm *.last10')  Doesn't work (apparently the star doesn't translate)
     
     print('modifying b2mn.dat')
 
@@ -215,7 +218,7 @@ def increment_run(rundir, gfile_loc, new_filename = 'b2.transport.inputfile_new'
 # ----------------------------------------------------------------------------------------
 
 
-def track_inputfile_iterations(rundir=None, carbon=True, cmap='viridis'):
+def track_inputfile_iterations(rundir=None, carbon=True, cmap='viridis', Dn_scalar = 100):
     """
     Track the evolution of the b2.transport.inputfile transport
     coefficients through and evolving transport matching job
@@ -279,7 +282,7 @@ def track_inputfile_iterations(rundir=None, carbon=True, cmap='viridis'):
         ax[j].grid('on')
 
     plt.figure()
-    plt.plot(range(ninfiles), dn_sep, '-xk', lw=2, label='Dn')
+    plt.plot(range(ninfiles), dn_sep*Dn_scalar, '-xk', lw=2, label='Dn x' + str(Dn_scalar))
     plt.plot(range(ninfiles), ki_sep, '-ob', lw=2, label='ki')
     plt.plot(range(ninfiles), ke_sep, '-or', lw=2, label='ke')
     plt.legend(loc='best')
@@ -288,7 +291,7 @@ def track_inputfile_iterations(rundir=None, carbon=True, cmap='viridis'):
     plt.grid('on')
 
     plt.figure()
-    plt.plot(range(ninfiles), dn_bdy, '-xk', lw=2, label='Dn')
+    plt.plot(range(ninfiles), dn_bdy*Dn_scalar, '-xk', lw=2, label='Dn x' + str(Dn_scalar))
     plt.plot(range(ninfiles), ki_bdy, '-ob', lw=2, label='ki')
     plt.plot(range(ninfiles), ke_bdy, '-or', lw=2, label='ke')
     plt.legend(loc='best')
