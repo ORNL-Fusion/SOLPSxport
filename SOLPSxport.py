@@ -582,9 +582,10 @@ class SOLPSxport:
         """
         # x variable is identical for all of these
         x_fTot, fluxTot = sut.B2pl("fnay za m* 0 0 sumz sy m/ writ jxa f.y")
-        dummy, fluxConv = sut.B2pl("na za m* vlay m* 0 0 sumz sy m/ writ jxa f.y")
+        x_fTot, fluxD = sut.B2pl("fnay 1 zsel sy m/ writ jxa f.y")
+        dummy, fluxConv = sut.B2pl("na za m* vlay m* 0 0 sumz writ jxa f.y")
         dummy, na = sut.B2pl("na 0 0 sumz writ jxa f.y")
-        dummy, hy1 = sut.B2pl("hy1 writ jxa f.y")
+        # dummy, hy1 = sut.B2pl("hy1 writ jxa f.y")  # not used anymore
         dummy, qe = sut.B2pl("fhey sy m/ writ jxa f.y")
         dummy, qi = sut.B2pl("fhiy sy m/ writ jxa f.y")
         
@@ -597,9 +598,10 @@ class SOLPSxport:
 
         self.data['solpsData']['profiles']['x_fTot'] = np.array(x_fTot)
         self.data['solpsData']['profiles']['fluxTot'] = np.array(fluxTot)
+        self.data['solpsData']['profiles']['fluxD'] = np.array(fluxD)
         self.data['solpsData']['profiles']['fluxConv'] = np.array(fluxConv)
         self.data['solpsData']['profiles']['na'] = np.array(na)
-        self.data['solpsData']['profiles']['hy1'] = np.array(hy1)
+        # self.data['solpsData']['profiles']['hy1'] = np.array(hy1)  # not used anymore
         self.data['solpsData']['profiles']['qe'] = np.array(qe)
         self.data['solpsData']['profiles']['qi'] = np.array(qi)
 
@@ -641,6 +643,7 @@ class SOLPSxport:
         """
 
         x_nc, nc_solps = sut.B2pl("na 8 zsel psy writ jxa f.y")
+        x_nd, nd_solps = sut.B2pl("na 1 zsel psy writ jxa f.y")
         dummy, flux_carbon = sut.B2pl("fnay 8 zsel psy writ jxa f.y")  # x variables are the same
         dummy, vr_carbon = sut.B2pl("vlay 8 zsel writ jxa f.y")
         
@@ -652,6 +655,7 @@ class SOLPSxport:
 
         self.data['solpsData']['profiles']['x_nC'] = np.array(x_nc)
         self.data['solpsData']['profiles']['nC'] = np.array(nc_solps)
+        self.data['solpsData']['profiles']['nD'] = np.array(nd_solps)
         self.data['solpsData']['profiles']['fluxC'] = np.array(flux_carbon)
         self.data['solpsData']['profiles']['vrC'] = np.array(vr_carbon)
         
@@ -727,8 +731,13 @@ class SOLPSxport:
         keold = self.data['solpsData']['last10']['ke']
         tiold = self.data['solpsData']['last10']['ti']
         kiold = self.data['solpsData']['last10']['ki']
+        if self.data['carbon']:
+            ndold = self.data['solpsData']['profiles']['nD']
+        else:
+            ndold = neold
         
         fluxTot = self.data['solpsData']['profiles']['fluxTot']
+        fluxD = self.data['solpsData']['profiles']['fluxD']
         fluxConv = self.data['solpsData']['profiles']['fluxConv']
         # hy1 = self.data['solpsData']['profiles']['hy1']  # Not used here
         qe = self.data['solpsData']['profiles']['qe']
@@ -767,8 +776,8 @@ class SOLPSxport:
         # this method assumes no convective transport (ok in some cases)
         dnew_ratio = (gnold_dsa / gnexp_solpslocs_dsa) * dold
 
-        
-        flux = fluxTot - fluxConv  # Conductive portion of the total flux
+
+        flux = fluxD - fluxConv  # Conductive portion of the total flux
         dnew_flux = -flux / gnexp_solpslocs_dsa
 
         if use_ratio_bc:
@@ -842,7 +851,7 @@ class SOLPSxport:
         kinew_ratio = (gtiold / gtiexp_solpslocs) * kiold
 
         # gradient has to be in dsa to work
-        kinew_flux = -(qi - 2.5 * fluxTot * tiold * eV) / (neold * eV * gtiexp_solpslocs)
+        kinew_flux = -(qi - 2.5 * fluxTot * tiold * eV) / (ndold * eV * gtiexp_solpslocs)
 
         if use_ratio_bc:
             kinew_ratio[-1] = kiold[-1] * tiold[-1] / expTi_dsa_func(dsa[-1])
@@ -1244,14 +1253,14 @@ class SOLPSxport:
                     inlines.append("tdata(1, {}, 1, 3) = {:e} , tdata(2, {}, 1, 3) = {:e} ,\n".format(i+2, rn[i+1], i+2, dn[i+1]))
                 inlines.append("tdata(1, {}, 1, 3) = {:e} , tdata(2, {}, 1, 3) = {:e} ,\n".format(len(rn), rn[-1]+delta_step, len(rn), dn[-1]))
                 
-                for j in range(4, 10):
+                for j in range(4, 9):
                     inlines.append('ndata( 1, 1, {}) = {} ,\n'.format(j, len(rn)))
                     inlines.append("tdata(1, 1, 1, {}) = {:e} , tdata(2, 1, 1, {}) = {:e} ,\n".format(j, rn[0]-delta_step, j, dc[0]))
                     for i in range(len(rn)-2):
                         inlines.append("tdata(1, {}, 1, {}) = {:e} , tdata(2, {}, 1, {}) = {:e} ,\n".format(i+2, j, rn[i+1], i+2, j, dc[i+1]))
                     inlines.append("tdata(1, {}, 1, {}) = {:e} , tdata(2, {}, 1, {}) = {:e} ,\n".format(len(rn), j, rn[-1]+delta_step, len(rn),j,dc[-1]))
     
-                for j in range(3, 10):
+                for j in range(3, 9):
                     inlines.append('ndata( 1, 6, {}) = {} ,\n'.format(j, len(rn)))
                     inlines.append("tdata(1, 1, 6, {}) = {:e} , tdata(2, 1, 6, {}) = {:e} ,\n".format(j, rn[0]-delta_step, j, vrc[0]))
                     for i in range(len(rn)-2):
@@ -1271,6 +1280,12 @@ class SOLPSxport:
             for i in range(len(rn)-2):
                 inlines.append("tdata(1, {}, 4, 1) = {:e} , tdata(2, {}, 4, 1) = {:e} ,\n".format(i+2, rn[i+1], i+2, ke[i+1]))
             inlines.append("tdata(1, {}, 4, 1) = {:e} , tdata(2, {}, 4, 1) = {:e} ,\n".format(len(rn), rn[-1]+delta_step, len(rn), ke[-1]))
+
+            if carbon:
+                # Assign the same ion thermal diffusion coefficients (transport coefficient 3) from
+                # species 1 to all other ion species
+                for i in range(2, 9):
+                    inlines.append('addspec( {}, 3, 1) = {} ,\n'.format(i, i))
         
             
         inlines.append('no_pflux = .true.\n')

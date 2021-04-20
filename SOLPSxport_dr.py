@@ -25,7 +25,7 @@ converge to the solution for transport coefficients, the routine "increment_run"
 be useful to do this all quickly
 
 R.S. Wilcox, J.M. Canik and J.D. Lore 2020
-contact: wilcoxr@fusion.gat.com
+contact: wilcoxrs@ornl.gov
 
 Reference for this procedure:
 https://doi.org/10.1016/j.jnucmat.2010.11.084
