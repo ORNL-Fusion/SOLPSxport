@@ -182,8 +182,11 @@ def increment_run(rundir, gfile_loc, new_filename = 'b2.transport.inputfile_new'
     allfiles = os.listdir('.')
     all_incs = [int(i[22:]) for i in allfiles if i[:22] == 'b2.transport.inputfile' and
                 i[-1] != '~' and i[-1] != 'e' and i[22] != '_']
-    
-    inc_num = np.max(all_incs)
+
+    if all_incs:
+        inc_num = np.max(all_incs)
+    else:
+        inc_num = 0
     os.rename('b2fstati', 'b2fstati' + str(inc_num+1))
     os.rename('b2.transport.inputfile', 'b2.transport.inputfile' + str(inc_num+1))
     os.rename(new_filename, 'b2.transport.inputfile')
