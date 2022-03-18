@@ -1,10 +1,20 @@
 """
 This driver is used to generate new b2.transport.inputfile files for SOLPS
 that will come closer to matching the experimental upstream profiles.
+If things go well, after several iterations, this will produce radial
+ne, Te and Ti profiles in SOLPS at the outboard midplane that match the
+experimental profiles provided.
 It does this through the generation of an object of class 'SOLPSxport'
 
-The routine "main_mdsplus" runs the sequence in the correct order and returns
+The routine "main" runs the sequence in the correct order and returns
 the SOLPSxport object for additional plotting and debugging if necessary
+
+
+Instructions for command line call:
+->Source SOLPS-ITER setup file for b2plot calls
+->Navigate to run directory
+$ python ~/Pytools/SOLPSxport_dr.py -g <gfile location> -s <shot number> -t <profile time ID> -r <profile run ID>
+
 
 Requirements:
 -Code depends on the SOLPSxport class contained in SOLPSxport.py, which in turn
@@ -47,22 +57,23 @@ plt.rcParams.update({'mathtext.default': 'regular'})
 # ----------------------------------------------------------------------------------------
 
 
-def main_mdsplus(rundir, gfile_loc, new_filename='b2.transport.inputfile_new',
-                 profiles_fileloc=None, shotnum=None, ptime=None, prunid=None,
-                 nefit='tanh', tefit='tanh', ncfit='spl',
-                 Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=10,
-                 chie_min = 0.01, chii_min = 0.01, chie_max = 200, chii_max = 200,
-                 use_existing_last10=False, reduce_Ti=True, carbon=True,
-                 plot_xport_coeffs=True, plotall=False, verbose=False):
+def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
+         profiles_fileloc=None, shotnum=None, ptimeid=None, prunid=None,
+         nefit='tanh', tefit='tanh', ncfit='spl',
+         Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=10,
+         chie_min = 0.01, chii_min = 0.01, chie_max = 200, chii_max = 200,
+         use_existing_last10=False, reduce_Ti=True, carbon=True,
+         plot_xport_coeffs=True, plotall=False, verbose=False, figblock=False):
     """
     Driver for the code using Osborne profile fits saved in MDSplus
 
     Inputs:
       rundir            Location of SOLPS run directory
+                        --> depricated, assume you are in the directory (this is required for b2plot calls)
       gfile_loc         Location of gfile used for SOLPS grid (for mapping SOLPS grid to psin)
       profiles_fileloc  (optional) Location of a .pkl file with saved Tom's tools profile
                         fit coefficients (produced by getProfDBPedFit from SOLPSutils)
-      shotnum,ptime,prunid  Profile identifying shot number, timeid and runid (from Tom's tools)
+      shotnum,ptimeid,prunid  Profile identifying shot number, timeid and runid (from Tom's tools)
                         (this is uneccessary if you have a .pkl file given in profiles_fileloc)
       xxfit             Fit function used in each profile fit (xx => ne, te and nc)
       Dn_min            Set a floor for the allowable particle diffusion coefficient
@@ -84,21 +95,24 @@ def main_mdsplus(rundir, gfile_loc, new_filename='b2.transport.inputfile_new',
                         and next iteration of transport coefficients
       plotall           Produce a bunch more plots from the subroutines used in the process
       verbose           Set to True to print a lot more outputs to terminal
+      figblock          Set to True if calling from command time and you want to see figures
 
     Returns:
       Object of class 'SOLPSxport', which can then be called to plot or recall the saved data
     """
 
     if shotnum is None: shotnum = int(gfile_loc[-12:-6])
-    if ptime is None: ptime = int(gfile_loc[-4:])
+    if ptimeid is None: ptimeid = int(gfile_loc[-4:])
+    ptimeid = int(ptimeid)
+    shotnum = int(shotnum)
 
     print("Initializing SOLPSxport")
-    xp = sxp.SOLPSxport(workdir=rundir, gfile_loc=gfile_loc, carbon_bool=carbon)
+    xp = sxp.SOLPSxport(workdir=os.getcwd(), gfile_loc=gfile_loc, carbon_bool=carbon)
     print("Running calcPsiVals")
     xp.calcPsiVals(plotit=plotall)
     print("Running getSOLPSlast10Profs")
     xp.getSOLPSlast10Profs(plotit=plotall, use_existing_last10=use_existing_last10)
-    xp.loadProfDBPedFit(profiles_fileloc, shotnum, ptime, prunid, verbose=True)
+    xp.loadProfDBPedFit(profiles_fileloc, shotnum, ptimeid, prunid, verbose=True)
     print("Populating PedFits")
     xp.populatePedFits(nemod=nefit, temod=tefit, ncmod=ncfit, npsi=250, plotit=plotall)
     print("Getting flux profiles")
@@ -111,12 +125,32 @@ def main_mdsplus(rundir, gfile_loc, new_filename='b2.transport.inputfile_new',
     print("Running calcXportCoeff")
     xp.calcXportCoef(plotit=plotall or plot_xport_coeffs, reduce_Ti=reduce_Ti, Dn_min=Dn_min,
                      ti_decay_len=ti_decay_len, vrc_mag=vrc_mag, verbose=verbose, Dn_max=Dn_max,
-                     chii_min=chii_min, chii_max=chii_max, chie_min=chie_min, chie_max=chie_max)
+                     chii_min=chii_min, chii_max=chii_max, chie_min=chie_min, chie_max=chie_max, figblock=figblock)
 
     print("Running writeXport")
     xp.writeXport(new_filename=new_filename)
 
     return xp
+
+# --- Launch main() ----------------------------------------------------------------------
+
+
+if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Generate new b2.transport.inputfile files for SOLPS',
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('-g', '--gfileloc', help='location of profs_*.pkl saved profile file', type=str, default=None)
+    parser.add_argument('-p', '--profilesloc', help='location of profs_*.pkl saved profile file', type=str, default=None)
+    parser.add_argument('-s', '--shotnum', help='shot number; default = None', type=str, default=None)
+    parser.add_argument('-t', '--timeid', help='time of profile run; default = None', type=str, default=None)
+    parser.add_argument('-r', '--runid', help='profile run id; default = None', type=str, default=None)
+
+    args = parser.parse_args()
+
+    _ = main(gfile_loc=args.gfileloc, profiles_fileloc=args.profilesloc,
+             shotnum=args.shotnum, ptimeid=args.timeid, prunid=args.runid, figblock=True)
 
 # ----------------------------------------------------------------------------------------
 
@@ -157,8 +191,8 @@ def main_omfit(topdir, subfolder, gfile_loc, prof_folder = None,
 # ----------------------------------------------------------------------------------------
 
 
-def increment_run(rundir, gfile_loc, new_filename = 'b2.transport.inputfile_new',
-                  profiles_fileloc = None, shotnum = None, ptime = None, prunid = None,
+def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
+                  profiles_fileloc = None, shotnum = None, ptimeid = None, prunid = None,
                   use_existing_last10 = False, reduce_Ti = True,
                   carbon = True, plotall = False, plot_xport_coeffs = True,
                   ntim_new = 100, dtim_new = '1.0e-6', Dn_min = 0.0005):
@@ -169,15 +203,12 @@ def increment_run(rundir, gfile_loc, new_filename = 'b2.transport.inputfile_new'
 
     Hide input files from this routine by using '_' in the filename after 'b2.transport.inputfile'
     """
-
-    olddir = os.getcwd()
-    os.chdir(rundir)
     
-    xp = main_mdsplus(rundir = rundir, gfile_loc = gfile_loc, new_filename = new_filename,
-                      profiles_fileloc = profiles_fileloc, shotnum = shotnum, ptime = ptime,
-                      prunid = prunid, Dn_min = Dn_min, use_existing_last10 = use_existing_last10,
-                      reduce_Ti = reduce_Ti, carbon = carbon, plotall = plotall,
-                      plot_xport_coeffs = plot_xport_coeffs, verbose=False)
+    xp = main(gfile_loc = gfile_loc, new_filename = new_filename,
+              profiles_fileloc = profiles_fileloc, shotnum = shotnum, ptimeid = ptimeid,
+              prunid = prunid, Dn_min = Dn_min, use_existing_last10 = use_existing_last10,
+              reduce_Ti = reduce_Ti, carbon = carbon, plotall = plotall,
+              plot_xport_coeffs = plot_xport_coeffs, verbose=False)
     
     allfiles = os.listdir('.')
     all_incs = [int(i[22:]) for i in allfiles if i[:22] == 'b2.transport.inputfile' and
@@ -215,8 +246,7 @@ def increment_run(rundir, gfile_loc, new_filename = 'b2.transport.inputfile_new'
     with open('b2mn.dat', 'w') as f:
         for i in range(len(lines)):
             f.write(lines[i])
-            
-    os.chdir(olddir)
+
 
 # ----------------------------------------------------------------------------------------
 
