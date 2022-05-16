@@ -80,8 +80,8 @@ def calcTanhMulti(c, x, param=None):
 
     return out
 
-
 # ----------------------------------------------------------------------------------------            
+
 
 def loadMDS(tree, tag, shot, quiet=True):
     import MDSplus
@@ -116,8 +116,8 @@ def loadMDS(tree, tag, shot, quiet=True):
 
     return out
 
-
 # ----------------------------------------------------------------------------------------
+
 
 def B2pl(cmds, wdir='.', debug=False):
     """
@@ -136,9 +136,15 @@ def B2pl(cmds, wdir='.', debug=False):
     system(cmdstr)
 
     fname = path.join(wdir, 'b2pl.exe.dir', 'b2plot.write')
+    if not path.exists(fname):
+        print('B2Plot writing failed for call:')
+        print(cmds)
+        print('in directory: ' + wdir + '\n')
+
     x, y = [], []
     with open(fname) as f:
         lines = f.readlines()
+
     for line in lines:
         elements = line.split()
         if elements[0] == '#':
@@ -146,13 +152,13 @@ def B2pl(cmds, wdir='.', debug=False):
         else:
             x.append(float(elements[0]))
             y.append(float(elements[1]))
-    x = x[0:(len(x) / 2)]  # used to be: x=x[0:(len(x)/2)-1], chopped final value
-    y = y[0:(len(y) / 2)]
+    x = x[0:(len(x) // 2)]  # used to be: x=x[0:(len(x)/2)-1], chopped final value
+    y = y[0:(len(y) // 2)]
 
     return x, y
 
-
 # ----------------------------------------------------------------------------------------
+
 
 def readProf(fname, wdir='.'):
     """
@@ -176,8 +182,8 @@ def readProf(fname, wdir='.'):
 
     return x, y
 
-
 # ----------------------------------------------------------------------------------------
+
 
 def loadg(filename):
     infile = open(filename, 'r')
@@ -225,7 +231,7 @@ def loadg(filename):
     while count < terms:
         line = lines[lnum]
         numchar = len(line)
-        nwords = numchar / 16
+        nwords = numchar // 16
         count1 = 0
         while count1 < nwords:
             i1 = count1 * 16
@@ -266,7 +272,7 @@ def loadg(filename):
     while count < terms:
         line = lines[lnum]
         numchar = len(line)
-        nwords = numchar / 16
+        nwords = numchar // 16
         count1 = 0
         while count1 < nwords:
             i1 = count1 * 16
@@ -336,7 +342,10 @@ def getProfDBPedFit(shotnum, timeid, runid, write_to_file=None):
     Loads saved data from Tom's tools MDSplus server
      'XXdatpsi' :  Raw data
      
-     write_to_file: Give file name
+     write_to_file: Give file name (prefer extension '.txt')
+                    .pkl files using pickle module are the old format, but these can break if
+                    you ever use a different version of Python to read than what was used to write.
+                    New format uses json module to write a .txt file
     """
 
     tree = 'profdb_ped'
@@ -359,10 +368,13 @@ def getProfDBPedFit(shotnum, timeid, runid, write_to_file=None):
         profile_fits[t] = val
 
     if write_to_file is not None:
-        import pickle
+        if write_to_file[-4:] == '.pkl':
+            import pickle
 
-        with open(write_to_file, 'wb') as f:
-            pickle.dump(profile_fits, f, pickle.HIGHEST_PROTOCOL)
+            with open(write_to_file, 'wb') as f:
+                pickle.dump(profile_fits, f, pickle.HIGHEST_PROTOCOL)
+        else:
+            print("can't print to that file type yet, only .pkl")
 
     return profile_fits
 
@@ -456,8 +468,7 @@ def read_b2_transport_inputfile(infileloc, carbon=True):
     with open(infileloc, 'r') as f:
         lines = f.readlines()
 
-    ndata = int(
-        lines[1].strip().split()[5])  # This is the same for every array in our write routine
+    ndata = int(lines[1].strip().split()[5])  # This is the same for every array in our write routine
 
     rn = np.zeros(ndata)
     dn = np.zeros(ndata)

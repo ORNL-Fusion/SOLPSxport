@@ -14,7 +14,8 @@ Instructions for command line call:
 ->Source SOLPS-ITER setup file for b2plot calls
 ->Navigate to run directory
 $ python ~/Pytools/SOLPSxport_dr.py -g <gfile location> -s <shot number> -t <profile time ID> -r <profile run ID>
-
+or if you already have a saved profiles file (.pkl):
+$ python ~/Pytools/SOLPSxport_dr.py -g <gfile location> -p <profiles file location>
 
 Requirements:
 -Code depends on the SOLPSxport class contained in SOLPSxport.py, which in turn
@@ -60,10 +61,12 @@ plt.rcParams.update({'mathtext.default': 'regular'})
 def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          profiles_fileloc=None, shotnum=None, ptimeid=None, prunid=None,
          nefit='tanh', tefit='tanh', ncfit='spl',
-         Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=10,
+         Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=20,
+         ke_use_grad = False, ki_use_grad = False,
          chie_min = 0.01, chii_min = 0.01, chie_max = 200, chii_max = 200,
-         use_existing_last10=False, reduce_Ti=True, carbon=True,
-         plot_xport_coeffs=True, plotall=False, verbose=False, figblock=False):
+         reduce_Ti_fileloc='/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
+         carbon=True, use_existing_last10=False, plot_xport_coeffs=True,
+         plotall=False, verbose=False, figblock=False):
     """
     Driver for the code using Osborne profile fits saved in MDSplus
 
@@ -84,11 +87,12 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
       ti_decay_len      Decay length (at the outboard midplane) for imposed exponential falloff
                         for experimental Ti, beginning at separatrix
                         (since we know Ti measurement from CER is incorrect in SOL)
+      ke/i_use_grad     Use ratio of the gradients for new values of chi_e/i, rather than fluxes
       use_existing_last10  Set to True if you have already run 2d_profiles to produce .last10 files
                            in the run folder to save time. Otherwise this will call 2d_profiles so
                            that you don't accidentally use .last10 files from a previous iteration
                            with out-of-date SOLPS profiles
-      reduce_Ti         Set to False to use T_D = T_C from MDS+ profile fit
+      reduce_Ti_fileloc Set to None to use T_D = T_C from MDS+ profile fit
       carbon            Set to False if SOLPS run includes D only
                         note: this routine is not yet generalized to anything other than D or D+C
       plot_xport_coeffs Plot the SOLPS and experimental profiles, along with the previous
@@ -123,12 +127,12 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
         xp.getSOLPSCarbonProfs(plotit=plotall)
 
     print("Running calcXportCoeff")
-    xp.calcXportCoef(plotit=plotall or plot_xport_coeffs, reduce_Ti=reduce_Ti, Dn_min=Dn_min,
+    xp.calcXportCoef(plotit=plotall or plot_xport_coeffs, reduce_Ti_fileloc=reduce_Ti_fileloc, Dn_min=Dn_min,
                      ti_decay_len=ti_decay_len, vrc_mag=vrc_mag, verbose=verbose, Dn_max=Dn_max,
                      chii_min=chii_min, chii_max=chii_max, chie_min=chie_min, chie_max=chie_max, figblock=figblock)
 
     print("Running writeXport")
-    xp.writeXport(new_filename=new_filename)
+    xp.writeXport(new_filename=new_filename, ke_use_grad=ke_use_grad, ki_use_grad=ki_use_grad)
 
     return xp
 
@@ -146,11 +150,13 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--shotnum', help='shot number; default = None', type=str, default=None)
     parser.add_argument('-t', '--timeid', help='time of profile run; default = None', type=str, default=None)
     parser.add_argument('-r', '--runid', help='profile run id; default = None', type=str, default=None)
+    parser.add_argument('-i', '--tifileloc', help='File location for Ti/TD ratio; default = None', type=str, default=None)
 
     args = parser.parse_args()
 
     _ = main(gfile_loc=args.gfileloc, profiles_fileloc=args.profilesloc,
-             shotnum=args.shotnum, ptimeid=args.timeid, prunid=args.runid, figblock=True)
+             shotnum=args.shotnum, ptimeid=args.timeid, prunid=args.runid,
+             reduce_Ti_fileloc=args.tifileloc, figblock=True)
 
 # ----------------------------------------------------------------------------------------
 
@@ -193,7 +199,8 @@ def main_omfit(topdir, subfolder, gfile_loc, prof_folder = None,
 
 def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
                   profiles_fileloc = None, shotnum = None, ptimeid = None, prunid = None,
-                  use_existing_last10 = False, reduce_Ti = True,
+                  use_existing_last10 = False, ke_use_grad = False, ki_use_grad = False,
+                  reduce_Ti_fileloc = '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
                   carbon = True, plotall = False, plot_xport_coeffs = True,
                   ntim_new = 100, dtim_new = '1.0e-6', Dn_min = 0.0005):
     """
@@ -207,7 +214,8 @@ def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
     xp = main(gfile_loc = gfile_loc, new_filename = new_filename,
               profiles_fileloc = profiles_fileloc, shotnum = shotnum, ptimeid = ptimeid,
               prunid = prunid, Dn_min = Dn_min, use_existing_last10 = use_existing_last10,
-              reduce_Ti = reduce_Ti, carbon = carbon, plotall = plotall,
+              ke_use_grad=ke_use_grad, ki_use_grad=ki_use_grad,
+              reduce_Ti_fileloc = reduce_Ti_fileloc, carbon = carbon, plotall = plotall,
               plot_xport_coeffs = plot_xport_coeffs, verbose=False)
     
     allfiles = os.listdir('.')
@@ -246,6 +254,8 @@ def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
     with open('b2mn.dat', 'w') as f:
         for i in range(len(lines)):
             f.write(lines[i])
+
+    return xp
 
 
 # ----------------------------------------------------------------------------------------
@@ -310,7 +320,7 @@ def track_inputfile_iterations(rundir=None, carbon=True, cmap='viridis', Dn_scal
     ax[1].set_ylabel('ki')
     ax[2].set_ylabel('ke')
     ax[-1].set_xlabel('rn')
-    ax[0].legend(loc='best')
+    ax[0].legend(loc='best', fontsize=12)
     for j in range(len(ax)):
         ax[j].grid('on')
 
@@ -318,7 +328,7 @@ def track_inputfile_iterations(rundir=None, carbon=True, cmap='viridis', Dn_scal
     plt.plot(range(ninfiles), dn_sep*Dn_scalar, '-xk', lw=2, label='Dn x' + str(Dn_scalar))
     plt.plot(range(ninfiles), ki_sep, '-ob', lw=2, label='ki')
     plt.plot(range(ninfiles), ke_sep, '-or', lw=2, label='ke')
-    plt.legend(loc='best')
+    plt.legend(loc='best', fontsize=12)
     plt.xlabel('Iteration')
     plt.title('Transport coefficient evolution at separatrix')
     plt.grid('on')
@@ -327,7 +337,7 @@ def track_inputfile_iterations(rundir=None, carbon=True, cmap='viridis', Dn_scal
     plt.plot(range(ninfiles), dn_bdy*Dn_scalar, '-xk', lw=2, label='Dn x' + str(Dn_scalar))
     plt.plot(range(ninfiles), ki_bdy, '-ob', lw=2, label='ki')
     plt.plot(range(ninfiles), ke_bdy, '-or', lw=2, label='ke')
-    plt.legend(loc='best')
+    plt.legend(loc='best', fontsize=12)
     plt.xlabel('Iteration')
     plt.title('Transport coefficient evolution at boundary')
     plt.grid('on')
