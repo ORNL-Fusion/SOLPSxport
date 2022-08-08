@@ -636,6 +636,62 @@ def read_b2fstat(fileloc):
 
     return b2fstat
 
+# ----------------------------------------------------------------------------------------
+
+
+def read_input_dat(fileloc, verbose = False):
+    """
+    Read and parse the input.dat file
+
+    For now just reads the EIRENE surface locations and albedo, but can be easily appended to include more
+    """
+    if not (fileloc[-9:] == 'input.dat' or fileloc[-9:] == 'input.eir'):
+        print('WARNING: expected file name "input.dat"')
+
+    if verbose:
+        print("Reading input.dat file from: " + fileloc)
+
+    with open(fileloc, 'r') as f:
+        lines = f.readlines()
+
+    b3bind = 0
+    surfmod1_ind = 0
+    for i, l in enumerate(lines):
+        if l[:6] == "*** 3b":
+            b3bind = i  # starting index of block 3b
+        if l[:6] == "*** 6a":
+            for j, surfmodblocklines in enumerate(lines[i:]):
+                if surfmodblocklines[:9] == 'SURFMOD_1':
+                    surfmod1_ind = i + j  # starting index of SURFMOD_1 line
+                    break
+            break
+
+    if b3bind == 0:
+        print("No block labeled '3b' in text file provided, check that it's a SOLPS input.dat file: " + fileloc)
+        return
+
+    nsurfs = int(lines[b3bind+1])
+
+    rlocs1 = np.zeros(nsurfs)
+    zlocs1 = np.zeros(nsurfs)
+    rlocs2 = np.zeros(nsurfs)
+    zlocs2 = np.zeros(nsurfs)
+    surfmod = np.zeros(nsurfs)
+    for i in range(nsurfs):
+        rlocs1[i] = float(lines[b3bind + 5*(i+1)][:12]) / 100.0  # in m
+        zlocs1[i] = float(lines[b3bind + 5*(i+1)][12:24]) / 100.0
+        rlocs2[i] = float(lines[b3bind + 5*(i+1)][36:48]) / 100.0
+        zlocs2[i] = float(lines[b3bind + 5*(i+1)][48:60]) / 100.0
+        surfmod[i] = int(lines[b3bind + 5*(i+1) + 1][8])
+
+    nsurfmods = int(np.max(surfmod))
+
+    recyct = np.zeros(nsurfmods)
+    for i in range(nsurfmods):
+        recyct[i] = float(lines[surfmod1_ind + 5*i + 3][13:24])
+
+    return {'nsurfs':nsurfs, 'rlocs1':rlocs1, 'zlocs1':zlocs1, 'rlocs2':rlocs2, 'zlocs2':zlocs2,
+            'surfmod':surfmod, 'recyct':recyct}
 
 # ----------------------------------------------------------------------------------------
 # def shift(arr,ns):

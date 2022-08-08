@@ -11,11 +11,13 @@ the SOLPSxport object for additional plotting and debugging if necessary
 
 
 Instructions for command line call:
+
 ->Source SOLPS-ITER setup file for b2plot calls
 ->Navigate to run directory
 $ python ~/Pytools/SOLPSxport_dr.py -g <gfile location> -s <shot number> -t <profile time ID> -r <profile run ID>
 or if you already have a saved profiles file (.pkl):
 $ python ~/Pytools/SOLPSxport_dr.py -g <gfile location> -p <profiles file location>
+
 
 Requirements:
 -Code depends on the SOLPSxport class contained in SOLPSxport.py, which in turn
@@ -62,7 +64,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          profiles_fileloc=None, shotnum=None, ptimeid=None, prunid=None,
          nefit='tanh', tefit='tanh', ncfit='spl',
          Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=20,
-         ke_use_grad = False, ki_use_grad = False,
+         ke_use_grad = False, ki_use_grad = True,
          chie_min = 0.01, chii_min = 0.01, chie_max = 200, chii_max = 200,
          reduce_Ti_fileloc='/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
          carbon=True, use_existing_last10=False, plot_xport_coeffs=True,
@@ -88,6 +90,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                         for experimental Ti, beginning at separatrix
                         (since we know Ti measurement from CER is incorrect in SOL)
       ke/i_use_grad     Use ratio of the gradients for new values of chi_e/i, rather than fluxes
+                        For some reason I don't understand (bug?), flux formula doesn't work well for chi_i
       use_existing_last10  Set to True if you have already run 2d_profiles to produce .last10 files
                            in the run folder to save time. Otherwise this will call 2d_profiles so
                            that you don't accidentally use .last10 files from a previous iteration
@@ -199,7 +202,7 @@ def main_omfit(topdir, subfolder, gfile_loc, prof_folder = None,
 
 def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
                   profiles_fileloc = None, shotnum = None, ptimeid = None, prunid = None,
-                  use_existing_last10 = False, ke_use_grad = False, ki_use_grad = False,
+                  use_existing_last10 = False, ke_use_grad = False, ki_use_grad = True,
                   reduce_Ti_fileloc = '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
                   carbon = True, plotall = False, plot_xport_coeffs = True,
                   ntim_new = 100, dtim_new = '1.0e-6', Dn_min = 0.0005):
@@ -311,10 +314,10 @@ def track_inputfile_iterations(rundir=None, carbon=True, cmap='viridis', Dn_scal
         ki_bdy[i] = infile['ki'][-1]
         ke_bdy[i] = infile['ke'][-1]
 
-        ax[0].plot(infile['rn'], infile['dn'], '-x', color=cm(i / (float(ninfiles) - 1)),
-                   label=inputfile_list[i][13:])
-        ax[1].plot(infile['rn'], infile['ki'], '-x', color=cm(i / (float(ninfiles) - 1)))
-        ax[2].plot(infile['rn'], infile['ke'], '-x', color=cm(i / (float(ninfiles) - 1)))
+        ax[0].semilogy(infile['rn'], infile['dn'], '-x', color=cm(i / (float(ninfiles) - 1)),
+                       label=inputfile_list[i][13:])
+        ax[1].semilogy(infile['rn'], infile['ki'], '-x', color=cm(i / (float(ninfiles) - 1)))
+        ax[2].semilogy(infile['rn'], infile['ke'], '-x', color=cm(i / (float(ninfiles) - 1)))
 
     ax[0].set_ylabel('dn')
     ax[1].set_ylabel('ki')
@@ -325,18 +328,18 @@ def track_inputfile_iterations(rundir=None, carbon=True, cmap='viridis', Dn_scal
         ax[j].grid('on')
 
     plt.figure()
-    plt.plot(range(ninfiles), dn_sep*Dn_scalar, '-xk', lw=2, label='Dn x' + str(Dn_scalar))
-    plt.plot(range(ninfiles), ki_sep, '-ob', lw=2, label='ki')
-    plt.plot(range(ninfiles), ke_sep, '-or', lw=2, label='ke')
+    plt.semilogy(np.array(range(ninfiles))+1, dn_sep*Dn_scalar, '-xk', lw=2, label='Dn x' + str(Dn_scalar))
+    plt.semilogy(np.array(range(ninfiles))+1, ki_sep, '-ob', lw=2, label='ki')
+    plt.semilogy(np.array(range(ninfiles))+1, ke_sep, '-or', lw=2, label='ke')
     plt.legend(loc='best', fontsize=12)
     plt.xlabel('Iteration')
     plt.title('Transport coefficient evolution at separatrix')
     plt.grid('on')
 
     plt.figure()
-    plt.plot(range(ninfiles), dn_bdy*Dn_scalar, '-xk', lw=2, label='Dn x' + str(Dn_scalar))
-    plt.plot(range(ninfiles), ki_bdy, '-ob', lw=2, label='ki')
-    plt.plot(range(ninfiles), ke_bdy, '-or', lw=2, label='ke')
+    plt.semilogy(np.array(range(ninfiles))+1, dn_bdy*Dn_scalar, '-xk', lw=2, label='Dn x' + str(Dn_scalar))
+    plt.semilogy(np.array(range(ninfiles))+1, ki_bdy, '-ob', lw=2, label='ki')
+    plt.semilogy(np.array(range(ninfiles))+1, ke_bdy, '-or', lw=2, label='ke')
     plt.legend(loc='best', fontsize=12)
     plt.xlabel('Iteration')
     plt.title('Transport coefficient evolution at boundary')
