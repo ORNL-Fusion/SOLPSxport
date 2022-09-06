@@ -45,6 +45,7 @@ https://doi.org/10.1016/j.jnucmat.2010.11.084
 """
 
 import os
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -62,8 +63,8 @@ plt.rcParams.update({'mathtext.default': 'regular'})
 
 def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          profiles_fileloc=None, shotnum=None, ptimeid=None, prunid=None,
-         nefit='tanh', tefit='tanh', ncfit='spl',
-         Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=20,
+         nefit='tanh', tefit='tanh', ncfit='spl', chii_eq_chie = False,
+         Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=100,
          ke_use_grad = False, ki_use_grad = True,
          chie_min = 0.01, chii_min = 0.01, chie_max = 200, chii_max = 200,
          reduce_Ti_fileloc='/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
@@ -81,6 +82,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
       shotnum,ptimeid,prunid  Profile identifying shot number, timeid and runid (from Tom's tools)
                         (this is uneccessary if you have a .pkl file given in profiles_fileloc)
       xxfit             Fit function used in each profile fit (xx => ne, te and nc)
+      chii_eq_chie      Set to True to ignore Ti profile and just set chi_i = chi_e (not implemented yet!!)
       Dn_min            Set a floor for the allowable particle diffusion coefficient
       Dn_max            Set a maximum for the allowable particle diffusion coefficient
       chie_max          Set a maximum for the allowable electron energy diffusion coefficient
@@ -135,7 +137,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                      chii_min=chii_min, chii_max=chii_max, chie_min=chie_min, chie_max=chie_max, figblock=figblock)
 
     print("Running writeXport")
-    xp.writeXport(new_filename=new_filename, ke_use_grad=ke_use_grad, ki_use_grad=ki_use_grad)
+    xp.writeXport(new_filename=new_filename, ke_use_grad=ke_use_grad, ki_use_grad=ki_use_grad, chii_eq_chie=chii_eq_chie)
 
     return xp
 
@@ -144,6 +146,8 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
 
 if __name__ == '__main__':
     import argparse
+
+    py3_9 = (sys.version_info[0] >= 3 and sys.version_info[1] >= 9)
 
     parser = argparse.ArgumentParser(description='Generate new b2.transport.inputfile files for SOLPS',
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -154,11 +158,24 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--timeid', help='time of profile run; default = None', type=str, default=None)
     parser.add_argument('-r', '--runid', help='profile run id; default = None', type=str, default=None)
     parser.add_argument('-i', '--tifileloc', help='File location for Ti/TD ratio; default = None', type=str, default=None)
+    if py3_9:
+        parser.add_argument('--chii_eq_chie', action='store_true', default=False)
+        # parser.set_defaults(chii_eq_chie=False)
+        parser.add_argument('--chie_use_grad', action='store_true', default=False)
+        # parser.set_defaults(chie_use_grad=False)
+        parser.add_argument('--chii_use_grad', action='store_true', default=True)
+        # parser.set_defaults(chii_use_grad=True)
 
     args = parser.parse_args()
 
+    if not py3_9:
+        args.chii_eq_chie = False
+        args.ke_use_grad = False
+        args.ki_use_grad = True
+
     _ = main(gfile_loc=args.gfileloc, profiles_fileloc=args.profilesloc,
              shotnum=args.shotnum, ptimeid=args.timeid, prunid=args.runid,
+             chii_eq_chie=args.chii_eq_chie, ke_use_grad=args.ke_use_grad, ki_use_grad=args.ki_use_grad,
              reduce_Ti_fileloc=args.tifileloc, figblock=True)
 
 # ----------------------------------------------------------------------------------------
@@ -274,7 +291,7 @@ def track_inputfile_iterations(rundir=None, carbon=True, cmap='viridis', Dn_scal
 
     Requires everything to be on the same grid with the same species
     """
-    from SOLPSutils import read_b2_transport_inputfile
+    from SOLPSxport.SOLPSutils import read_b2_transport_inputfile
 
     if rundir is None:
         print("No run directory given, selecting cwd:")

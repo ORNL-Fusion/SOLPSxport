@@ -161,7 +161,7 @@ class SOLPSxport:
     def loadProfDBPedFit(self, profiles_file = None, shotnum = None,
                          timeid = None, runid = None, verbose = True):
         """
-        Either (1) provide the location of the saved profiles file (prefer using json module, previously used pickle)
+        Either (1) provide the location of the saved profiles file
                    (should have extension *.pkl for now, json not set up yet)
             or (2) give info to retrieve it from MDSplus
 
@@ -566,21 +566,33 @@ class SOLPSxport:
         self.data['solpsData']['psiSOLPS'] = np.array(psi_solps)
 
         if plotit:
+            psiN_range = [np.min(psi_solps), np.max(psi_solps)]
+
             psiN_copy = psiN.copy()
-            psiN_copy[psiN > 1.01] = np.nan
+            psiN_copy[psiN > psiN_range[1]] = np.nan
+            psiN_copy[psiN < psiN_range[0]] = np.nan
             psin_masked = np.ma.masked_invalid(psiN_copy)
 
             plt.figure()
-            plt.pcolormesh(gR, gZ, psin_masked, cmap = 'inferno')
-            plt.colorbar()
+            plt.contourf(gR, gZ, psin_masked, levels=[psiN_range[0], 1, psiN_range[1]], colors = [])
+            # plt.pcolormesh(gR, gZ, psin_masked, cmap = 'inferno')
+            # plt.colorbar(ticks = [0.25,0.5,0.75,1])
             plt.plot(g['rlim'], g['zlim'], 'k', lw = 2)
-            plt.contour(gR, gZ, psiN, [1], colors = 'k')
-            plt.title('$\psi_N$ from g file')
+            # plt.contour(gR, gZ, psiN, [1], colors='k')
+            # plt.contour(gR, gZ, psiN, [psiN_range[0]], colors='r', linestyles='dashed')
+            # plt.contour(gR, gZ, psiN, [psiN_range[1]], colors='r', linestyles='dashed')
+            gfile_name = self.data['gfile_loc'][self.data['gfile_loc'].rfind('/')+1:]
+            plt.title(gfile_name)
             plt.axis('equal')
+            plt.xlabel('R (m)')
+            plt.ylabel('Z (m)')
+            plt.xticks([1.0, 1.5, 2.0, 2.5])
+            plt.yticks(np.arange(-1.5, 1.6, 0.5))
             plt.xlim([np.min(gR), np.max(gR)])
             plt.ylim([np.min(gZ), np.max(gZ)])
-            plt.plot(R_solps_top, Z_solps_top, 'g', lw = 3)
-            plt.plot([1.94, 1.94], [-1.5, 1.5], '--k', lw=1)  # Thomson laser path
+            plt.plot(R_solps_top, Z_solps_top, 'g', lw=3)
+            plt.plot([1.94, 1.94], [-1.5, 1.5], ':k', lw=1)  # Thomson laser path
+            plt.tight_layout()
 
             plt.figure()
             plt.plot(R_solps_top, psi_solps, 'k', lw = 2)
@@ -957,6 +969,22 @@ class SOLPSxport:
 
     # ----------------------------------------------------------------------------------------
 
+    def flatSOLcoeffs(self, plotit = True, verbose = False, figblock = False):
+        """
+        Manually change transport coefficients in the SOL to some specified value
+        """
+
+
+
+        self.data['solpsData']['xportCoef'] = {'dnew_ratio': dnew_ratio, 'dnew_flux': dnew_flux,
+                                               'kenew_ratio': kenew_ratio, 'kenew_flux': kenew_flux,
+                                               'kinew_ratio': kinew_ratio, 'kinew_flux': kinew_flux,
+                                               'vr_carbon': vr_carbon, 'D_carbon': D_carbon,
+                                               'limits': coef_limits}
+
+
+    # ----------------------------------------------------------------------------------------
+
     def plotXportCoef(self, figblock=False):
         """
         Plot the upstream profiles from SOLPS compared to the experiment
@@ -1067,7 +1095,7 @@ class SOLPSxport:
         ax[1, 2].set_xlim(xlims)
         ax[1, 2].set_ylim([min_ki/np.sqrt(headroom), max_ki*headroom])
         ax[1, 2].grid('on')
-        ax[1, 2].legend(loc='best', fontsize=12)
+        ax[1, 2].legend(loc='best', fontsize=10)
 
         ax[0, 0].set_xticks(np.arange(0.84, 1.05, 0.04))
         ax[0, 0].set_xlim(xlims)
@@ -1244,7 +1272,7 @@ class SOLPSxport:
             if 'ti_mod' in self.data['pedData']['fitVals'].keys():
                 ax[0, 2].plot(self.data['pedData']['fitVals']['ti_mod']['x'],
                               self.data['pedData']['fitVals']['ti_mod']['y'],
-                              '--b', mew=2, zorder=4, label='Modified Ti fit')
+                              '--b', lw=2, zorder=4, label='Modified Ti fit')
             ax[0, 2].set_ylabel('T$_i$ (keV)')
             ax[0, 2].set_ylim([0, max_temp * headroom])
             ax[0, 2].set_yticks(np.arange(0, max_temp * headroom + 0.2, 0.2))
@@ -1266,7 +1294,7 @@ class SOLPSxport:
     # ----------------------------------------------------------------------------------------
     
     def writeXport(self, new_filename = 'b2.transport.inputfile_new', solps5_0 = False,
-                   scale_D = 1, ke_use_grad = False, ki_use_grad = False):
+                   scale_D = 1, ke_use_grad = False, ki_use_grad = False, chii_eq_chie = False):
         """
         Write the b2.transport.inputfile using values saved in this object
 
@@ -1275,6 +1303,7 @@ class SOLPSxport:
           scale_D            Scalar factor to modify all particle diffusion coefficients
                              (when going from density BC to flux BC, need to reduce the transport by a
                              factor proportional to the difference in core flux between the two cases)
+          chii_eq_chie       Set chi_i = chi_e, if ion data is bad or non-existent (default = False)
         """
         
         wdir = self.data['workdir']
@@ -1292,10 +1321,15 @@ class SOLPSxport:
             ke = self.data['solpsData']['xportCoef']['kenew_ratio']
         else:
             ke = self.data['solpsData']['xportCoef']['kenew_flux']
-        if ki_use_grad:
-            ki = self.data['solpsData']['xportCoef']['kinew_ratio']
+
+        if chii_eq_chie:
+            ki = ke
         else:
-            ki = self.data['solpsData']['xportCoef']['kinew_flux']
+            if ki_use_grad:
+                ki = self.data['solpsData']['xportCoef']['kinew_ratio']
+            else:
+                ki = self.data['solpsData']['xportCoef']['kinew_flux']
+
         vrc = self.data['solpsData']['xportCoef']['vr_carbon']
         dc = self.data['solpsData']['xportCoef']['D_carbon'] * scale_D
         carbon = self.data['carbon']
@@ -1419,7 +1453,7 @@ class SOLPSxport:
         
             
         inlines.append('no_pflux = .true.\n')
-        inlines.append('/')
+        inlines.append('/\n')
         
         # Write out file
         
