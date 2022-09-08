@@ -65,7 +65,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          profiles_fileloc=None, shotnum=None, ptimeid=None, prunid=None,
          nefit='tanh', tefit='tanh', ncfit='spl', chii_eq_chie = False,
          Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=100,
-         ke_use_grad = False, ki_use_grad = True,
+         chie_use_grad = False, chii_use_grad = True,
          chie_min = 0.01, chii_min = 0.01, chie_max = 200, chii_max = 200,
          reduce_Ti_fileloc='/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
          carbon=True, use_existing_last10=False, plot_xport_coeffs=True,
@@ -91,7 +91,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
       ti_decay_len      Decay length (at the outboard midplane) for imposed exponential falloff
                         for experimental Ti, beginning at separatrix
                         (since we know Ti measurement from CER is incorrect in SOL)
-      ke/i_use_grad     Use ratio of the gradients for new values of chi_e/i, rather than fluxes
+      chie/i_use_grad   Use ratio of the gradients for new values of chi_e/i, rather than fluxes
                         For some reason I don't understand (bug?), flux formula doesn't work well for chi_i
       use_existing_last10  Set to True if you have already run 2d_profiles to produce .last10 files
                            in the run folder to save time. Otherwise this will call 2d_profiles so
@@ -137,7 +137,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                      chii_min=chii_min, chii_max=chii_max, chie_min=chie_min, chie_max=chie_max, figblock=figblock)
 
     print("Running writeXport")
-    xp.writeXport(new_filename=new_filename, ke_use_grad=ke_use_grad, ki_use_grad=ki_use_grad, chii_eq_chie=chii_eq_chie)
+    xp.writeXport(new_filename=new_filename, chie_use_grad=chie_use_grad, chii_use_grad=chii_use_grad, chii_eq_chie=chii_eq_chie)
 
     return xp
 
@@ -170,12 +170,12 @@ if __name__ == '__main__':
 
     if not py3_9:
         args.chii_eq_chie = False
-        args.ke_use_grad = False
-        args.ki_use_grad = True
+        args.chie_use_grad = False
+        args.chii_use_grad = True
 
     _ = main(gfile_loc=args.gfileloc, profiles_fileloc=args.profilesloc,
              shotnum=args.shotnum, ptimeid=args.timeid, prunid=args.runid,
-             chii_eq_chie=args.chii_eq_chie, ke_use_grad=args.ke_use_grad, ki_use_grad=args.ki_use_grad,
+             chii_eq_chie=args.chii_eq_chie, chie_use_grad=args.chie_use_grad, chii_use_grad=args.chii_use_grad,
              reduce_Ti_fileloc=args.tifileloc, figblock=True)
 
 # ----------------------------------------------------------------------------------------
@@ -219,7 +219,7 @@ def main_omfit(topdir, subfolder, gfile_loc, prof_folder = None,
 
 def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
                   profiles_fileloc = None, shotnum = None, ptimeid = None, prunid = None,
-                  use_existing_last10 = False, ke_use_grad = False, ki_use_grad = True,
+                  use_existing_last10 = False, chie_use_grad = False, chii_use_grad = True,
                   reduce_Ti_fileloc = '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
                   carbon = True, plotall = False, plot_xport_coeffs = True,
                   ntim_new = 100, dtim_new = '1.0e-6', Dn_min = 0.0005):
@@ -234,7 +234,7 @@ def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
     xp = main(gfile_loc = gfile_loc, new_filename = new_filename,
               profiles_fileloc = profiles_fileloc, shotnum = shotnum, ptimeid = ptimeid,
               prunid = prunid, Dn_min = Dn_min, use_existing_last10 = use_existing_last10,
-              ke_use_grad=ke_use_grad, ki_use_grad=ki_use_grad,
+              chie_use_grad=chie_use_grad, chii_use_grad=chii_use_grad,
               reduce_Ti_fileloc = reduce_Ti_fileloc, carbon = carbon, plotall = plotall,
               plot_xport_coeffs = plot_xport_coeffs, verbose=False)
     

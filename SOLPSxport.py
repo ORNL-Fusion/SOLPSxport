@@ -1294,7 +1294,7 @@ class SOLPSxport:
     # ----------------------------------------------------------------------------------------
     
     def writeXport(self, new_filename = 'b2.transport.inputfile_new', solps5_0 = False,
-                   scale_D = 1, ke_use_grad = False, ki_use_grad = False, chii_eq_chie = False):
+                   scale_D = 1, chie_use_grad = False, chii_use_grad = False, chii_eq_chie = False):
         """
         Write the b2.transport.inputfile using values saved in this object
 
@@ -1317,7 +1317,7 @@ class SOLPSxport:
         
         rn = self.data['solpsData']['last10']['rx']
         dn = self.data['solpsData']['xportCoef']['dnew_flux'] * scale_D
-        if ke_use_grad:
+        if chie_use_grad:
             ke = self.data['solpsData']['xportCoef']['kenew_ratio']
         else:
             ke = self.data['solpsData']['xportCoef']['kenew_flux']
@@ -1325,7 +1325,7 @@ class SOLPSxport:
         if chii_eq_chie:
             ki = ke
         else:
-            if ki_use_grad:
+            if chii_use_grad:
                 ki = self.data['solpsData']['xportCoef']['kinew_ratio']
             else:
                 ki = self.data['solpsData']['xportCoef']['kinew_flux']
