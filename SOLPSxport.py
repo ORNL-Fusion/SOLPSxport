@@ -733,6 +733,7 @@ class SOLPSxport:
     def calcXportCoef(self, plotit = True, Dn_min = 0.001, chie_min = 0.01, chii_min = 0.01,
                       Dn_max = 10, chie_max = 200, chii_max = 200, vrc_mag=0.0, ti_decay_len = 0.015,
                       reduce_Ti_fileloc = '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
+                      fractional_change = 1,
                       use_ratio_bc = True, debug_plots = False, verbose = False, figblock = False):
         """
         Calculates the transport coefficients to be written into b2.transport.inputfile
@@ -742,6 +743,8 @@ class SOLPSxport:
         Inputs:
           ti_decay_len: Decay length for exponential falloff outside separatrix (units of psin)
                         (set to None to skip this)
+          fractional_change: Set to number smaller than 1 if the incremental change is too large and
+                             you want to take a half step or something different
           reduce_Ti_fileloc: Location of a saved array to get the ratio between T_C (measured) and T_i
                         This ratio was calculated from Shaun Haskey's T_D measurements
                         for 171558 @ 3200 ms
@@ -888,8 +891,15 @@ class SOLPSxport:
 
         kinew_ratio[0] = kinew_ratio[1]   # gaurd cells
         kinew_flux[0] = kinew_flux[1]
-        
-        
+
+        if fractional_change != 1:
+            dnew_ratio = dnew_ratio * fractional_change + dold * (1 - fractional_change)
+            dnew_flux = dnew_flux * fractional_change + dold * (1 - fractional_change)
+            kenew_ratio = kenew_ratio * fractional_change + keold * (1 - fractional_change)
+            kenew_flux = kenew_flux * fractional_change + keold * (1 - fractional_change)
+            kinew_ratio = kinew_ratio * fractional_change + kiold * (1 - fractional_change)
+            kinew_flux = kinew_flux * fractional_change + kiold * (1 - fractional_change)
+
         # Apply constraints
         
         dnew_ratio[dnew_ratio < Dn_min] = Dn_min
@@ -973,15 +983,13 @@ class SOLPSxport:
         """
         Manually change transport coefficients in the SOL to some specified value
         """
-
-
+        pass
 
         self.data['solpsData']['xportCoef'] = {'dnew_ratio': dnew_ratio, 'dnew_flux': dnew_flux,
                                                'kenew_ratio': kenew_ratio, 'kenew_flux': kenew_flux,
                                                'kinew_ratio': kinew_ratio, 'kinew_flux': kinew_flux,
                                                'vr_carbon': vr_carbon, 'D_carbon': D_carbon,
                                                'limits': coef_limits}
-
 
     # ----------------------------------------------------------------------------------------
 
@@ -1293,19 +1301,21 @@ class SOLPSxport:
 
     # ----------------------------------------------------------------------------------------
     
-    def writeXport(self, new_filename = 'b2.transport.inputfile_new', solps5_0 = False,
+    def writeXport(self, new_filename = 'b2.transport.inputfile_new', fractional_change = 1, solps5_0 = False,
                    scale_D = 1, chie_use_grad = False, chii_use_grad = False, chii_eq_chie = False):
         """
         Write the b2.transport.inputfile using values saved in this object
 
         Inputs:
+          fractional_change  Set to number smaller than 1 if the incremental change is too large and
+                             you want to take a half step or something different
           ke/i_use_grad      Use ratio of the gradients for new values of chi_i/e
           scale_D            Scalar factor to modify all particle diffusion coefficients
                              (when going from density BC to flux BC, need to reduce the transport by a
                              factor proportional to the difference in core flux between the two cases)
           chii_eq_chie       Set chi_i = chi_e, if ion data is bad or non-existent (default = False)
         """
-        
+
         wdir = self.data['workdir']
         inFile = os.path.join(wdir, new_filename)
         if os.path.isfile(inFile):
@@ -1353,6 +1363,17 @@ class SOLPSxport:
                 print('ki[{}] = {:e}'.format(i,ki[i]))
                 print('  Changed to ki[{}] = {:e}'.format(i,-ki[i]*1e-2))
                 ki[i] = -ki[i] * 1e-2
+
+        # Take a smaller step if requested
+
+        if fractional_change != 1:
+            dold = self.data['solpsData']['last10']['dn']
+            keold = self.data['solpsData']['last10']['ke']
+            kiold = self.data['solpsData']['last10']['ki']
+
+            dn = dn * fractional_change + dold * (1 - fractional_change)
+            ke = ke * fractional_change + keold * (1 - fractional_change)
+            ki = ki * fractional_change + kiold * (1 - fractional_change)
         
         inlines = list()
         
