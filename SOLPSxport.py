@@ -195,42 +195,45 @@ class SOLPSxport:
         self.timeid = pfile_loc[pfile_loc.rfind('.')+1:]
 
         pfile_dict = sut.read_pfile(pfile_loc)
-
-        psin = pfile_dict['psinorm']
-        ne = pfile_dict['ne(10^20/m^3)'] * 10  # needs to be in units of 10^19/m^3
-        Te = pfile_dict['te(KeV)'] * 1e3
-        try:
-            Ti = pfile_dict['ti(KeV)'] * 1e3
-        except:
-            Ti = Te
-            
         self.data['pedData']['pfile'] = pfile_dict
+
+        self.data['pedData']['fitPsiProf'] = pfile_dict['psinorm']
+        self.data['pedData']['fitProfs']['neprof'] = pfile_dict['ne(10^20/m^3)']
+        self.data['pedData']['fitProfs']['teprof'] = pfile_dict['te(KeV)']
+
+        try:
+            self.data['pedData']['fitProfs']['tiprof'] = pfile_dict['ti(KeV)']
+        except:
+            print('No Ti data in pfile, defaulting to Ti = Te')
+            self.data['pedData']['fitProfs']['tiprof'] = self.data['pedData']['fitProfs']['teprof']
         
         if plotit:
-            SOLPS_profs = self.data['solpsData']['last10']
-            rne_SOLPS = SOLPS_profs['rne']
-            rte_SOLPS = SOLPS_profs['rte']
-            rti_SOLPS = SOLPS_profs['rti']
-            ne_SOLPS = SOLPS_profs['ne']
-            te_SOLPS = SOLPS_profs['te']
-            ti_SOLPS = SOLPS_profs['ti']
-            
-            
+            solps_profs = self.data['solpsData']['last10']
+            rne_SOLPS = solps_profs['rne']
+            rte_SOLPS = solps_profs['rte']
+            rti_SOLPS = solps_profs['rti']
+            ne_SOLPS = solps_profs['ne']
+            te_SOLPS = solps_profs['te']
+            ti_SOLPS = solps_profs['ti']
+
             f, ax = plt.subplots(3, sharex = 'all')
             ax[0].plot(np.array(rne_SOLPS) + 1, ne_SOLPS * 1e-19, '-kx', lw=2, label='ne_SOLPS')
-            ax[0].plot(psin, ne, '--r', lw = 2, label = 'ne')
+            ax[0].plot(self.data['pedData']['fitPsiProf'], self.data['pedData']['fitProfs']['neprof'],
+                       '--r', lw = 2, label = 'ne')
             ax[0].set_ylabel('n$_e$ (10$^{19}$ m$^{-3}$)')
             ax[0].legend(loc = 'best')
             ax[0].grid('on')
 
             ax[1].plot(np.array(rte_SOLPS) + 1, te_SOLPS, '-kx', lw = 2, label = 'Te_SOLPS')
-            ax[1].plot(psin, Te, '--r', lw = 2, label = 'Te')
+            ax[1].plot(self.data['pedData']['fitPsiProf'], self.data['pedData']['fitProfs']['teprof'],
+                       '--r', lw = 2, label = 'Te')
             ax[1].set_ylabel('Te (eV)')
             ax[1].legend(loc = 'best')
             ax[1].grid('on')
             
             ax[2].plot(np.array(rti_SOLPS) + 1, ti_SOLPS, '-kx', lw = 2, label = 'Ti_SOLPS')
-            ax[2].plot(psin, Ti, '--r', lw = 2, label = 'Ti')
+            ax[2].plot(self.data['pedData']['fitPsiProf'], self.data['pedData']['fitProfs']['tiprof'],
+                       '--r', lw = 2, label = 'Ti')
             ax[2].set_ylabel('Ti (eV)')
             ax[2].legend(loc = 'best')
             ax[2].grid('on')

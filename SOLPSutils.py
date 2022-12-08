@@ -388,7 +388,7 @@ def read_pfile(pfile_loc):
 
     Returns a dictionary with a non-intuitive set of keys (units are included)
     
-    ** Note: pfiles don't go into the SOL **
+    ** Note: pfiles don't normally go into the SOL **
     """
     with open(pfile_loc, mode='r') as pfile:
         lines = pfile.readlines()

@@ -80,6 +80,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
       gfile_loc         Location of gfile used for SOLPS grid (for mapping SOLPS grid to psin)
       profiles_fileloc  (optional) Location of a .pkl file with saved Tom's tools profile
                         fit coefficients (produced by getProfDBPedFit from SOLPSutils)
+                        OR if not a .pkl file, can use a pfile as long as profiles extend far enough into SOL
       shotnum,ptimeid,prunid  Profile identifying shot number, timeid and runid (from Tom's tools)
                         (this is uneccessary if you have a .pkl file given in profiles_fileloc)
       xxfit             Fit function used in each profile fit (xx => ne, te and nc)
@@ -124,9 +125,13 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
     xp.calcPsiVals(plotit=plotall)
     print("Running getSOLPSlast10Profs")
     xp.getSOLPSlast10Profs(plotit=plotall, use_existing_last10=use_existing_last10)
-    xp.loadProfDBPedFit(profiles_fileloc, shotnum, ptimeid, prunid, verbose=True)
-    print("Populating PedFits")
-    xp.populatePedFits(nemod=nefit, temod=tefit, ncmod=ncfit, npsi=250, plotit=plotall)
+    if profiles_fileloc[-4:] == '.pkl' or prunid is not None:
+        xp.loadProfDBPedFit(profiles_fileloc, shotnum, ptimeid, prunid, verbose=True)
+        print("Populating PedFits")
+        xp.populatePedFits(nemod=nefit, temod=tefit, ncmod=ncfit, npsi=250, plotit=plotall)
+    else:
+        print("Loading profiles from pfile")
+        xp.load_pfile(profiles_fileloc, plotit=plotall)
     print("Getting flux profiles")
     xp.getSOLPSfluxProfs(plotit=plotall)
 
