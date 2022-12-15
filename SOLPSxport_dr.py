@@ -68,7 +68,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          chie_use_grad = False, chii_use_grad = True,
          chie_min = 0.01, chii_min = 0.01, chie_max = 200, chii_max = 200,
          reduce_Ti_fileloc='/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
-         fractional_change = 1,
+         fractional_change = 1, exp_prof_rad_shift = 0,
          carbon=True, use_existing_last10=False, plot_xport_coeffs=True,
          plotall=False, verbose=False, figblock=False):
     """
@@ -102,6 +102,8 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
       reduce_Ti_fileloc Set to None to use T_D = T_C from MDS+ profile fit
       fractional_change Set to number smaller than 1 if the incremental change is too large and
                         you want to take a smaller step
+      exp_prof_rad_shift: Apply a radial shift to experimental profiles
+                        (in units of psi_n, positive shifts profiles outward so separatrix is hotter)
       carbon            Set to False if SOLPS run includes D only
                         note: this routine is not yet generalized to anything other than D or D+C
       plot_xport_coeffs Plot the SOLPS and experimental profiles, along with the previous
@@ -142,7 +144,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
     print("Running calcXportCoeff")
     xp.calcXportCoef(plotit=plotall or plot_xport_coeffs, reduce_Ti_fileloc=reduce_Ti_fileloc, Dn_min=Dn_min,
                      ti_decay_len=ti_decay_len, vrc_mag=vrc_mag, verbose=verbose, Dn_max=Dn_max,
-                     fractional_change=fractional_change,
+                     fractional_change=fractional_change, exp_prof_rad_shift=exp_prof_rad_shift,
                      chii_min=chii_min, chii_max=chii_max, chie_min=chie_min, chie_max=chie_max, figblock=figblock)
 
     print("Running writeXport")

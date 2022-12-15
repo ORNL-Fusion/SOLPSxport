@@ -47,9 +47,11 @@ class SOLPSxport:
         self.data = {'workdir':workdir, 'workdir_short':workdir_short, 'gfile_loc': gfile_loc,
                      'pedData':{}, 'solpsData':{'profiles':{}}, 'carbon':carbon_bool, 'shot':shot}
 
-        if (not b2plot_dev_x11) and os.environ['B2PLOT_DEV'] == 'x11 ps':
-            print("Changing environment variable B2PLOT_DEV to 'ps'")
-            os.environ['B2PLOT_DEV'] = 'ps'
+        if 'B2PLOT_DEV' in os.environ.keys():
+            if (not b2plot_dev_x11) and os.environ['B2PLOT_DEV'] == 'x11 ps':
+                print("Changing environment variable B2PLOT_DEV to 'ps'")
+                os.environ['B2PLOT_DEV'] = 'ps'
+
         self.timeid = None
 
     # ----------------------------------------------------------------------------------------        
@@ -736,7 +738,7 @@ class SOLPSxport:
     def calcXportCoef(self, plotit = True, Dn_min = 0.001, chie_min = 0.01, chii_min = 0.01,
                       Dn_max = 10, chie_max = 200, chii_max = 200, vrc_mag=0.0, ti_decay_len = 0.015,
                       reduce_Ti_fileloc = '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
-                      fractional_change = 1,
+                      fractional_change = 1, exp_prof_rad_shift = 0,
                       use_ratio_bc = True, debug_plots = False, verbose = False, figblock = False):
         """
         Calculates the transport coefficients to be written into b2.transport.inputfile
@@ -748,6 +750,8 @@ class SOLPSxport:
                         (set to None to skip this)
           fractional_change: Set to number smaller than 1 if the incremental change is too large and
                              you want to take a half step or something different
+          exp_prof_rad_shift: Apply a radial shift to experimental profiles
+                              (in units of psi_n, positive shifts profiles outward so separatrix is hotter)
           reduce_Ti_fileloc: Location of a saved array to get the ratio between T_C (measured) and T_i
                         This ratio was calculated from Shaun Haskey's T_D measurements
                         for 171558 @ 3200 ms
@@ -787,7 +791,7 @@ class SOLPSxport:
         
         # ne and Gamma_e
 
-        psi_data_fit = self.data['pedData']['fitPsiProf']
+        psi_data_fit = self.data['pedData']['fitPsiProf'] + exp_prof_rad_shift
         neexp = 1.0e20 * self.data['pedData']['fitProfs']['neprof']
         
         dsa_TSprofile = psi_to_dsa_func(psi_data_fit)
@@ -1476,7 +1480,7 @@ class SOLPSxport:
             #         inlines.append('addspec( {}, 3, 1) = {} ,\n'.format(i, i))
         
             
-        inlines.append('no_pflux = .true.\n')
+        inlines.append('no_pflux = .true.\n')  # Will use whatever is in b2.transport.inputfile for PFR
         inlines.append('/\n')
         
         # Write out file

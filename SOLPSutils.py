@@ -345,7 +345,6 @@ def getProfDBPedFit(shotnum, timeid, runid, write_to_file=None):
      write_to_file: Give file name (prefer extension '.txt')
                     .pkl files using pickle module are the old format, but these can break if
                     you ever use a different version of Python to read than what was used to write.
-                    New format uses json module to write a .txt file
     """
 
     tree = 'profdb_ped'
