@@ -19,19 +19,26 @@ or if you already have a saved profiles file (.pkl):
 $ python ~/Pytools/SOLPSxport_dr.py -g <gfile location> -p <profiles file location>
 
 
+For calling within interactive Python session:
+
+-> Source SOLPS-ITER setup file for b2plot calls
+-> Make sure SOLPSxport_dr is located somewhere in the $PYTHONPATH environment variable
+-> Navigate to run directory with b2fstate and other run files
+$ ipython
+In [1]: import SOLPSxport_dr as sxdr  # (depending on directory structure, might need to be SOLPSxport.SOLPSxport_dr)
+In [2]: xp = sxdr.main(gfile_loc = '../g123456.02000', profiles_fileloc = 'prof_123456_2000.pkl')
+
+
 Requirements:
--Code depends on the SOLPSxport class contained in SOLPSxport.py, which in turn
-depends on routines in SOLPSutils.py
+-Code depends on the SOLPSxport class contained in SOLPSxport.py, as well as routines in SOLPSutils.py
 -An existing SOLPS run, which will be used to estimate the next iteration's
 radial transport coefficients
 -Experimental Te, ne and Ti profiles, preferably saved in the MDSplus database ("Tom's tools")
 -Source setup.ksh from a SOLPS-ITER distribution that can run b2plot before launching
 ipython and importing this module (b2plot is used it grab SOLPS data)
 
-For best results, use core density boundary condition matched to experimental data
-at innermost SOLPS grid location
-
 This usually requires several iterations to match the experimental profiles well
+(at least ~5 if starting from flat transport coefficients)
 
 Once you've figured out all of the settings you need and are iterating on a run to
 converge to the solution for transport coefficients, the routine "increment_run" can
@@ -51,6 +58,7 @@ import matplotlib.pyplot as plt
 
 from matplotlib.cm import get_cmap
 
+import SOLPSutils as sut
 import SOLPSxport as sxp
 
 plt.rcParams.update({'font.weight': 'bold'})
@@ -65,7 +73,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          profiles_fileloc=None, shotnum=None, ptimeid=None, prunid=None,
          nefit='tanh', tefit='tanh', ncfit='spl', chii_eq_chie = False,
          Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=100,
-         chie_use_grad = False, chii_use_grad = True,
+         chie_use_grad = False, chii_use_grad = True, modify_b2xportparams = True,
          chie_min = 0.01, chii_min = 0.01, chie_max = 200, chii_max = 200,
          reduce_Ti_fileloc='/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
          fractional_change = 1, exp_prof_rad_shift = 0,
@@ -95,6 +103,8 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                         (since we know Ti measurement from CER is incorrect in SOL)
       chie/i_use_grad   Use ratio of the gradients for new values of chi_e/i, rather than fluxes
                         For some reason I don't understand (bug?), flux formula doesn't work well for chi_i
+      modify_b2xportparams Modifies b2.transport.parameters so that D, X are set in PFR to match first
+                           radial cell of SOL (default is on)
       use_existing_last10  Set to True if you have already run 2d_profiles to produce .last10 files
                            in the run folder to save time. Otherwise this will call 2d_profiles so
                            that you don't accidentally use .last10 files from a previous iteration
@@ -113,11 +123,22 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
       figblock          Set to True if calling from command time and you want to see figures
 
     Returns:
-      Object of class 'SOLPSxport', which can then be called to plot or recall the saved data
+      Object of class 'SOLPSxport', which can then be used to plot, recall, modify or the saved data
+      and rewrite a new b2.transport.inputfile
     """
 
-    if shotnum is None: shotnum = int(gfile_loc[-12:-6])
-    if ptimeid is None: ptimeid = int(gfile_loc[-4:])
+    if shotnum is None:
+        try:
+            shotnum = int(gfile_loc[gfile_loc.rfind('g')+1:gfile_loc.rfind('.')])
+        except ValueError:
+            if verbose: print("Can't determine shot number, setting to 0")
+            shotnum = 0
+    if ptimeid is None:
+        try:
+            ptimeid = int(gfile_loc[gfile_loc.rfind('.')+1:])
+        except ValueError:
+            if verbose: print("Can't determine time slice, setting to 0")
+            ptimeid = 0
     ptimeid = int(ptimeid)
     shotnum = int(shotnum)
 
@@ -149,6 +170,29 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
 
     print("Running writeXport")
     xp.writeXport(new_filename=new_filename, chie_use_grad=chie_use_grad, chii_use_grad=chii_use_grad, chii_eq_chie=chii_eq_chie)
+
+    # Modify b2.transport.parameters so that PFR has same transport coefficients as first cell of SOL
+    if modify_b2xportparams:
+        # Need to find this
+        psin = list(xp.data['solpsData']['psiSOLPS'])
+        first_sol_ind = psin.index(min([i for i in psin if i > 1]))
+        dperp_pfr = xp.data['solpsData']['xportCoef']['dnew_flux'][first_sol_ind]
+
+        if chie_use_grad:
+            chieperp_pfr = xp.data['solpsData']['xportCoef']['kenew_ratio'][first_sol_ind]
+        else:
+            chieperp_pfr = xp.data['solpsData']['xportCoef']['kenew_flux'][first_sol_ind]
+
+        if chii_eq_chie:
+            chiiperp_pfr = chieperp_pfr
+        else:
+            if chie_use_grad:
+                chiiperp_pfr = xp.data['solpsData']['xportCoef']['kinew_ratio'][first_sol_ind]
+            else:
+                chiiperp_pfr = xp.data['solpsData']['xportCoef']['kinew_flux'][first_sol_ind]
+
+        sut.modify_b2xportparams(fileloc='./b2.transport.parameters',
+                                 dperp=dperp_pfr, chieperp=chieperp_pfr, chiiperp=chiiperp_pfr, verbose=verbose)
 
     return xp
 
@@ -232,7 +276,8 @@ def main_omfit(topdir, subfolder, gfile_loc, prof_folder = None,
 
 def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
                   profiles_fileloc = None, shotnum = None, ptimeid = None, prunid = None,
-                  use_existing_last10 = False, chie_use_grad = False, chii_use_grad = True,
+                  use_existing_last10 = False, chie_use_grad = False, chii_use_grad = False,
+                  modify_b2xportparams = True,
                   reduce_Ti_fileloc = '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
                   carbon = True, plotall = False, plot_xport_coeffs = True,
                   ntim_new = 100, dtim_new = '1.0e-6', Dn_min = 0.0005):
@@ -248,6 +293,7 @@ def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
               profiles_fileloc = profiles_fileloc, shotnum = shotnum, ptimeid = ptimeid,
               prunid = prunid, Dn_min = Dn_min, use_existing_last10 = use_existing_last10,
               chie_use_grad=chie_use_grad, chii_use_grad=chii_use_grad,
+              modify_b2xportparams=modify_b2xportparams,
               reduce_Ti_fileloc = reduce_Ti_fileloc, carbon = carbon, plotall = plotall,
               plot_xport_coeffs = plot_xport_coeffs, verbose=False)
     

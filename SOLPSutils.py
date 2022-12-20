@@ -533,9 +533,16 @@ def read_b2fgmtry(fileloc):
 
 # ----------------------------------------------------------------------------------------
 
-def modify_b2transportparams(fileloc, dperp=None, chieperp=None, chiiperp=None, verbose=False):
+def modify_b2xportparams(fileloc, dperp=None, chieperp=None, chiiperp=None, verbose=False, ndigits=10):
     """
     Modify b2.transport.parameters file with new transport coefficients
+
+    Inputs:
+      fileloc    Should end in 'b2.transport.parameters' unless you're doing something weird
+      dperp      Perpendicular particle diffusion coefficient (will not be modified if left as None)
+      chieperp   Perpendicular electron thermal diffusion coefficient (will not be modified if left as None)
+      chiiperp   Perpendicular ion thermal diffusion coefficient (will not be modified if left as None)
+      ndigits    Number of digits beyond the decimal point to include before rounding
 
     Expected format, from an example file from DIII-D:
 
@@ -557,9 +564,6 @@ def modify_b2transportparams(fileloc, dperp=None, chieperp=None, chiiperp=None, 
     with open(fileloc, 'r') as f:
         lines = f.readlines()
 
-    if verbose:
-        print('Modifying transport coefficients in ' + fileloc)
-
     for i, l in enumerate(lines):
 
         if dperp is not None:
@@ -567,9 +571,8 @@ def modify_b2transportparams(fileloc, dperp=None, chieperp=None, chiiperp=None, 
                 parm_ind = l.rfind('parm_dna')
                 if '*' in l[parm_ind:]:
                     mult_ind = l.rfind('*')
-                    lines[i] = l[:mult_ind+1] + str(dperp) + ',\n'
+                    lines[i] = l[:mult_ind+1] + str(round(dperp, ndigits)) + ',\n'
                     continue
-
                 else:
                     print('WARNING: Unexpected file format for b2.transport.parameters')
                     print('Not modifying b2.transport.parameters, so check PFR')
@@ -580,9 +583,8 @@ def modify_b2transportparams(fileloc, dperp=None, chieperp=None, chiiperp=None, 
                 parm_ind = l.rfind('parm_hci')
                 if '*' in l[parm_ind:]:
                     mult_ind = l.rfind('*')
-                    lines[i] = l[:mult_ind + 1] + str(chiiperp) + ',\n'
+                    lines[i] = l[:mult_ind + 1] + str(round(chiiperp, ndigits)) + ',\n'
                     continue
-
                 else:
                     print('WARNING: Unexpected file format for b2.transport.parameters')
                     print('Not modifying b2.transport.parameters, so check PFR')
@@ -591,9 +593,14 @@ def modify_b2transportparams(fileloc, dperp=None, chieperp=None, chiiperp=None, 
         if chieperp is not None:
             if 'parm_hce' in l:
                 eq_ind = l.rfind('=')
-                lines[i] = l[:eq_ind + 1] + str(chieperp) + ',\n'
+                lines[i] = l[:eq_ind + 1] + str(round(chieperp, ndigits)) + ',\n'
 
     rename(fileloc, fileloc + '_old')
+    if verbose:
+        print('Old version of ' + fileloc + ' moved to ' + fileloc + '_old')
+
+    if verbose:
+        print('Modifying transport coefficients in ' + fileloc)
 
     with open(fileloc, 'w') as f:
         for i in range(len(lines)):
