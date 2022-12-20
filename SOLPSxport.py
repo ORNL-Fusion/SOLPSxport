@@ -1004,7 +1004,7 @@ class SOLPSxport:
 
     # ----------------------------------------------------------------------------------------
 
-    def plotXportCoef(self, figblock=False):
+    def plotXportCoef(self, figblock=False, figsize=(14,7)):
         """
         Plot the upstream profiles from SOLPS compared to the experiment
         along with the corresponding updated transport coefficients
@@ -1055,7 +1055,7 @@ class SOLPSxport:
         headroom = 1.05
         xlims = [np.min(psi_solps) - 0.01, np.max(psi_solps) + 0.01]
 
-        f, ax = plt.subplots(2, 3, sharex = 'all')
+        f, ax = plt.subplots(2, 3, sharex = 'all', figsize=figsize)
         ax[0, 0].plot(psi_data_fit, neexp / 1.0e19, '--bo', lw = 1, label = 'TS data')
         ax[0, 0].plot(psi_solps, neold / 1.0e19, 'xr', lw = 2, label = 'SOLPS')
         ax[0, 0].set_ylabel('n$_e$ (10$^{19}$ m$^{-3}$)')
