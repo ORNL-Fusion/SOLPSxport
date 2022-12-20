@@ -7,7 +7,7 @@ I've left those routines below but commented them out and given a good replaceme
 A. Sontag, R.S. Wilcox 2019
 """
 
-from os import path, system
+from os import path, system, rename
 import numpy as np
 
 
@@ -530,8 +530,77 @@ def read_b2fgmtry(fileloc):
 
     return b2fgmtry
 
+
 # ----------------------------------------------------------------------------------------
 
+def modify_b2transportparams(fileloc, dperp=None, chieperp=None, chiiperp=None, verbose=False):
+    """
+    Modify b2.transport.parameters file with new transport coefficients
+
+    Expected format, from an example file from DIII-D:
+
+     &transport
+     write_nml_transp = .false.,
+     flag_dna=1, parm_dna=9*0.03,
+     flag_dpa=1, parm_dpa=9*0.0,
+     flag_vla=1, parm_vla=9*0.0,
+     flag_vsa=1, parm_vsa=9*0.2,
+     flag_hci=1, parm_hci=9*5.0,   # Ti is the same for all species, but n changes per species, so chi can be different
+     flag_hce=1, parm_hce=5.0,
+     flag_sig=1, parm_sig=0.000001,
+     flag_alf=1, parm_alf=0.000001,
+     /
+    """
+    if fileloc[-23:] != 'b2.transport.parameters':
+        print("WARNING: trying to modify something that should be named 'b2.transport.parameters', but it has a different name")
+
+    with open(fileloc, 'r') as f:
+        lines = f.readlines()
+
+    if verbose:
+        print('Modifying transport coefficients in ' + fileloc)
+
+    for i, l in enumerate(lines):
+
+        if dperp is not None:
+            if 'parm_dna' in l:
+                parm_ind = l.rfind('parm_dna')
+                if '*' in l[parm_ind:]:
+                    mult_ind = l.rfind('*')
+                    lines[i] = l[:mult_ind+1] + str(dperp) + ',\n'
+                    continue
+
+                else:
+                    print('WARNING: Unexpected file format for b2.transport.parameters')
+                    print('Not modifying b2.transport.parameters, so check PFR')
+                    return
+
+        if chiiperp is not None:   # test this, should be ok
+            if 'parm_hci' in l:
+                parm_ind = l.rfind('parm_hci')
+                if '*' in l[parm_ind:]:
+                    mult_ind = l.rfind('*')
+                    lines[i] = l[:mult_ind + 1] + str(chiiperp) + ',\n'
+                    continue
+
+                else:
+                    print('WARNING: Unexpected file format for b2.transport.parameters')
+                    print('Not modifying b2.transport.parameters, so check PFR')
+                    return
+
+        if chieperp is not None:
+            if 'parm_hce' in l:
+                eq_ind = l.rfind('=')
+                lines[i] = l[:eq_ind + 1] + str(chieperp) + ',\n'
+
+    rename(fileloc, fileloc + '_old')
+
+    with open(fileloc, 'w') as f:
+        for i in range(len(lines)):
+            f.write(lines[i])
+
+
+# ----------------------------------------------------------------------------------------
 
 def read_b2fstat(fileloc):
     """

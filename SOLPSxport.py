@@ -51,6 +51,8 @@ class SOLPSxport:
             if (not b2plot_dev_x11) and os.environ['B2PLOT_DEV'] == 'x11 ps':
                 print("Changing environment variable B2PLOT_DEV to 'ps'")
                 os.environ['B2PLOT_DEV'] = 'ps'
+        else:
+            print('WARNING: Need to source setup.csh for SOLPS-ITER distribution for complete SOLPSxport workflow')
 
         self.timeid = None
 
@@ -936,10 +938,12 @@ class SOLPSxport:
             vr_shape = psi_solps - vr_pos  # linear
             
             vr_carbon = vr_shape * vrc_mag / max(vr_shape)
-        
-            D_carbon = Dn_min + 0.0 * dnew_flux
+
+            # default to C diffusion being the same as main ion
+            # D_carbon = Dn_min + 0.0 * dnew_flux
             # D_carbon[19:] = dnew_flux[19:]
-            D_carbon[1:] = dnew_flux[1:]
+            # D_carbon[1:] = dnew_flux[1:]
+            D_carbon = None
                     
         else:
             vr_carbon = None
@@ -1312,6 +1316,7 @@ class SOLPSxport:
                    scale_D = 1, chie_use_grad = False, chii_use_grad = False, chii_eq_chie = False):
         """
         Write the b2.transport.inputfile using values saved in this object
+        SOLPS5.0 was deprecated, need to modify this code if you want to write to runs that old
 
         Inputs:
           fractional_change  Set to number smaller than 1 if the incremental change is too large and
@@ -1322,14 +1327,18 @@ class SOLPSxport:
                              factor proportional to the difference in core flux between the two cases)
           chii_eq_chie       Set chi_i = chi_e, if ion data is bad or non-existent (default = False)
         """
+        if self.data['carbon']:
+            species_nums = [1, 3, 4, 5, 6, 7, 8, 9]  # Exclude fluid neutral C
+        else:
+            species_nums = [1]  # 0 is fluid neutral D, 1 is D+
 
         wdir = self.data['workdir']
         inFile = os.path.join(wdir, new_filename)
         if os.path.isfile(inFile):
             print("'" + new_filename + "' already exists, renaming existing " +
                   "file to 'old_xport_coef' and writing new one")
-            movedFile = os.path.join(wdir, 'old_xport_coef')
-            cmds = 'cp ' + inFile + ' ' + movedFile
+            movedfile = os.path.join(wdir, 'old_xport_coef')
+            cmds = 'cp ' + inFile + ' ' + movedfile
             os.system(cmds)
         
         rn = self.data['solpsData']['last10']['rx']
@@ -1348,25 +1357,32 @@ class SOLPSxport:
                 ki = self.data['solpsData']['xportCoef']['kinew_flux']
 
         vrc = self.data['solpsData']['xportCoef']['vr_carbon']
-        dc = self.data['solpsData']['xportCoef']['D_carbon'] * scale_D
-        carbon = self.data['carbon']
+
+        # Default is that dc = dn
+        if self.data['solpsData']['xportCoef']['D_carbon'] is None:
+            dc = dn
+        else:
+            dc = self.data['solpsData']['xportCoef']['D_carbon'] * scale_D
         
         # Step the boundary points out a tiny bit so that they are
         # interpolated onto the SOLPS grid correctly
-        delta_step = 0.0001*np.min(np.abs(np.diff(rn)))
+        delta_step = 0.1*np.min(np.abs(np.diff(rn)))
         
         # Remove any small negative diffusivities and throw a warning
         
         for i in range(len(rn)):
             if dn[i] < 0:
+                print('Negative diffusivity calculated! Modifying to a small positive number')
                 print('dn[{}] = {:e}'.format(i,dn[i]))
                 print('  Changed to dn[{}] = {:e}'.format(i,-dn[i]*1e-5))
                 dn[i] = -dn[i] * 1e-5
             if ke[i] < 0:
+                print('Negative thermal diffusivity calculated! Modifying to a small positive number')
                 print('ke[{}] = {:e}'.format(i,ke[i]))
                 print('  Changed to ke[{}] = {:e}'.format(i,-ke[i]*1e-2))
                 ke[i] = -ke[i] * 1e-2
             if ki[i] < 0:
+                print('Negative thermal diffusivity calculated! Modifying to a small positive number')
                 print('ki[{}] = {:e}'.format(i,ki[i]))
                 print('  Changed to ki[{}] = {:e}'.format(i,-ki[i]*1e-2))
                 ki[i] = -ki[i] * 1e-2
@@ -1385,107 +1401,106 @@ class SOLPSxport:
         inlines = list()
         
         if solps5_0:
+            print('WARNING: SOLPS5.0 is not supported with this version of the code')
+
+            """
             inlines.append('&TRANSPORT\n')
             inlines.append('ndata( 1, 1, 1) = {} ,\n'.format(len(rn)+2))
             inlines.append("tdata(1, 1, 1, 1) = {:e} , tdata(2, 1, 1, 1) = {:e} ,\n".format(rn[0]-0.005, dn[0]))
             for i in range(len(rn)):
                 inlines.append("tdata(1, {}, 1, 1) = {:e} , tdata(2, {}, 1, 1) = {:e} ,\n".format(i + 2, rn[i], i + 2, dn[i]))
             inlines.append("tdata(1, {}, 1, 1) = {:e} , tdata(2, {}, 1, 1) = {:e} ,\n".format(len(rn)+2, rn[-1] + 0.005, len(rn)+2, dn[-1]))
-    
+
             if carbon:
                 inlines.append('ndata( 1, 1, 3) = {} ,\n'.format(len(rn)+2))
                 inlines.append("tdata(1, 1, 1, 3) = {:e} , tdata(2, 1, 1, 3) = {:e} ,\n".format(rn[0]-0.005, dn[0]))
                 for i in range(len(rn)):
                     inlines.append("tdata(1, {}, 1, 3) = {:e} , tdata(2, {}, 1, 3) = {:e} ,\n".format(i + 2, rn[i], i + 2, dn[i]))
                 inlines.append("tdata(1, {}, 1, 3) = {:e} , tdata(2, {}, 1, 3) = {:e} ,\n".format(len(rn)+2, rn[-1] + 0.005, len(rn)+2, dn[-1]))
-        
+
                 for j in range(4, 10):
                     inlines.append('ndata( 1, 1, {}) = {} ,\n'.format(j, len(rn)+2))
                     inlines.append("tdata(1, 1, 1, {}) = {:e} , tdata(2, 1, 1, {}) = {:e} ,\n".format(j, rn[0]-0.005, j, dn[0]))
                     for i in range(len(rn)):
                         inlines.append("tdata(1, {}, 1, {}) = {:e} , tdata(2, {}, 1, {}) = {:e} ,\n".format(i + 2, j, rn[i], i + 2, j,dc[i]))
                     inlines.append("tdata(1, {}, 1, {}) = {:e} , tdata(2, {}, 1, {}) = {:e} ,\n".format(len(rn) + 2, j, rn[-1] + 0.005, len(rn) + 2, j,dc[-1]))
-        
+
                 for j in range(3, 10):
                     inlines.append('ndata( 1, 6, {}) = {} ,\n'.format(j, len(rn)+2))
                     inlines.append("tdata(1, 1, 6, {}) = {:e} , tdata(2, 1, 6, {}) = {:e} ,\n".format(j, rn[0]-0.005, j, vrc[0]))
                     for i in range(len(rn)):
                         inlines.append("tdata(1, {}, 6, {}) = {:e} , tdata(2, {}, 6, {}) = {:e} ,\n".format(i + 2, j, rn[i], i + 2, j,vrc[i]))
                     inlines.append("tdata(1, {}, 6, {}) = {:e} , tdata(2, {}, 6, {}) = {:e} ,\n".format(len(rn)+2, j, rn[-1]+0.005, len(rn) + 2, j, vrc[-1]))
-    
+
             # Heat fluxes
-    
+
             inlines.append('ndata( 1, 3, 1) = {} ,\n'.format(len(rn)+2))
             inlines.append("tdata(1, 1, 3, 1) = {:e} , tdata(2, 1, 3, 1) = {:e} ,\n".format(rn[0]-0.005, ke[0]))
             for i in range(len(rn)):
                 inlines.append("tdata(1, {}, 3, 1) = {:e} , tdata(2, {}, 3, 1) = {:e} ,\n".format(i + 2, rn[i], i + 2, ke[i]))
             inlines.append("tdata(1, {}, 3, 1) = {:e} , tdata(2, {}, 3, 1) = {:e} ,\n".format(len(rn)+2, rn[-1] + 0.005, len(rn)+2, ke[-1]))
-    
+
             inlines.append('ndata( 1, 4, 1) = {} ,\n'.format(len(rn)+2))
             inlines.append("tdata(1, 1, 4, 1) = {:e} , tdata(2, 1, 4, 1) = {:e} ,\n".format(rn[0]-0.005, ki[0]))
             for i in range(len(rn)):
                 inlines.append("tdata(1, {}, 4, 1) = {:e} , tdata(2, {}, 4, 1) = {:e} ,\n".format(i + 2, rn[i], i + 2, ki[i]))
             inlines.append("tdata(1, {}, 4, 1) = {:e} , tdata(2, {}, 4, 1) = {:e} ,\n".format(len(rn)+2, rn[-1] + 0.005, len(rn)+2, ki[-1]))
-            
-        else:
-        
-            inlines.append('&TRANSPORT\n')
-            inlines.append('ndata( 1, 1, 1) = {} ,\n'.format(len(rn)))
-            inlines.append("tdata(1, 1, 1, 1) = {:e} , tdata(2, 1, 1, 1) = {:e} ,\n".format(rn[0]-delta_step, dn[0]))
-            for i in range(len(rn)-2):
-                inlines.append("tdata(1, {}, 1, 1) = {:e} , tdata(2, {}, 1, 1) = {:e} ,\n".format(i+2,rn[i+1],i+2,dn[i+1]))
-            inlines.append("tdata(1, {}, 1, 1) = {:e} , tdata(2, {}, 1, 1) = {:e} ,\n".format(len(rn), rn[-1]+delta_step, len(rn), dn[-1]))
-            
-    
-            if carbon:
-                inlines.append('ndata( 1, 1, 3) = {} ,\n'.format(len(rn)))
-                inlines.append("tdata(1, 1, 1, 3) = {:e} , tdata(2, 1, 1, 3) = {:e} ,\n".format(rn[0]-delta_step, dn[0]))
+            """
+
+        inlines.append('&TRANSPORT\n')
+        inlines.append('ndata( 1, 1, 1) = {} ,\n'.format(len(rn)))
+        inlines.append("tdata(1, 1, 1, 1) = {:e} , tdata(2, 1, 1, 1) = {:e} ,\n".format(rn[0]-delta_step, dn[0]))
+        for i in range(len(rn)-2):
+            inlines.append("tdata(1, {}, 1, 1) = {:e} , tdata(2, {}, 1, 1) = {:e} ,\n".format(i+2,rn[i+1],i+2,dn[i+1]))
+        inlines.append("tdata(1, {}, 1, 1) = {:e} , tdata(2, {}, 1, 1) = {:e} ,\n".format(len(rn), rn[-1]+delta_step, len(rn), dn[-1]))
+
+        if self.data['carbon']:
+
+            for j in range(3, 10):
+                inlines.append('ndata( 1, 1, {}) = {} ,\n'.format(j, len(rn)))
+                inlines.append("tdata(1, 1, 1, {}) = {:e} , tdata(2, 1, 1, {}) = {:e} ,\n".format(j, rn[0]-delta_step, j, dc[0]))
                 for i in range(len(rn)-2):
-                    inlines.append("tdata(1, {}, 1, 3) = {:e} , tdata(2, {}, 1, 3) = {:e} ,\n".format(i+2, rn[i+1], i+2, dn[i+1]))
-                inlines.append("tdata(1, {}, 1, 3) = {:e} , tdata(2, {}, 1, 3) = {:e} ,\n".format(len(rn), rn[-1]+delta_step, len(rn), dn[-1]))
-                
-                for j in range(4, 10):
-                    inlines.append('ndata( 1, 1, {}) = {} ,\n'.format(j, len(rn)))
-                    inlines.append("tdata(1, 1, 1, {}) = {:e} , tdata(2, 1, 1, {}) = {:e} ,\n".format(j, rn[0]-delta_step, j, dc[0]))
-                    for i in range(len(rn)-2):
-                        inlines.append("tdata(1, {}, 1, {}) = {:e} , tdata(2, {}, 1, {}) = {:e} ,\n".format(i+2, j, rn[i+1], i+2, j, dc[i+1]))
-                    inlines.append("tdata(1, {}, 1, {}) = {:e} , tdata(2, {}, 1, {}) = {:e} ,\n".format(len(rn), j, rn[-1]+delta_step, len(rn),j,dc[-1]))
-    
+                    inlines.append("tdata(1, {}, 1, {}) = {:e} , tdata(2, {}, 1, {}) = {:e} ,\n".format(i+2, j, rn[i+1], i+2, j, dc[i+1]))
+                inlines.append("tdata(1, {}, 1, {}) = {:e} , tdata(2, {}, 1, {}) = {:e} ,\n".format(len(rn), j, rn[-1]+delta_step, len(rn),j,dc[-1]))
+
+            # C pinch term to attempt to match CER nC+6
+            if np.any(vrc):
                 for j in range(3, 10):
                     inlines.append('ndata( 1, 6, {}) = {} ,\n'.format(j, len(rn)))
                     inlines.append("tdata(1, 1, 6, {}) = {:e} , tdata(2, 1, 6, {}) = {:e} ,\n".format(j, rn[0]-delta_step, j, vrc[0]))
                     for i in range(len(rn)-2):
                         inlines.append("tdata(1, {}, 6, {}) = {:e} , tdata(2, {}, 6, {}) = {:e} ,\n".format(i+2, j, rn[i+1], i+2, j, vrc[i+1]))
                     inlines.append("tdata(1, {}, 6, {}) = {:e} , tdata(2, {}, 6, {}) = {:e} ,\n".format(len(rn), j, rn[-1]+delta_step, len(rn), j, vrc[-1]))
-                    
-            # Heat fluxes
-    
-            inlines.append('ndata( 1, 3, 1) = {} ,\n'.format(len(rn)))
-            inlines.append("tdata(1, 1, 3, 1) = {:e} , tdata(2, 1, 3, 1) = {:e} ,\n".format(rn[0]-delta_step, ki[0]))
-            for i in range(len(rn)-2):
-                inlines.append("tdata(1, {}, 3, 1) = {:e} , tdata(2, {}, 3, 1) = {:e} ,\n".format(i+2, rn[i+1], i+2, ki[i+1]))
-            inlines.append("tdata(1, {}, 3, 1) = {:e} , tdata(2, {}, 3, 1) = {:e} ,\n".format(len(rn), rn[-1]+delta_step, len(rn), ki[-1]))
-    
-            inlines.append('ndata( 1, 4, 1) = {} ,\n'.format(len(rn)))
-            inlines.append("tdata(1, 1, 4, 1) = {:e} , tdata(2, 1, 4, 1) = {:e} ,\n".format(rn[0]-delta_step, ke[0]))
-            for i in range(len(rn)-2):
-                inlines.append("tdata(1, {}, 4, 1) = {:e} , tdata(2, {}, 4, 1) = {:e} ,\n".format(i+2, rn[i+1], i+2, ke[i+1]))
-            inlines.append("tdata(1, {}, 4, 1) = {:e} , tdata(2, {}, 4, 1) = {:e} ,\n".format(len(rn), rn[-1]+delta_step, len(rn), ke[-1]))
 
-            # if carbon:
-            #     # Assign the same ion thermal diffusion coefficients (transport coefficient 3) from
-            #     # species 1 to all other ion species
-            #     # This seems to be incorrect, it breaks the reading
-            #     for i in range(2, 10):
-            #         inlines.append('addspec( {}, 3, 1) = {} ,\n'.format(i, i))
-        
-            
+        # Heat fluxes
+
+        for j in species_nums:
+            inlines.append('ndata( 1, 3, {}) = {} ,\n'.format(j, len(rn)))
+            inlines.append("tdata(1, 1, 3, {}) = {:e} , tdata(2, 1, 3, {}) = {:e} ,\n".format(j, rn[0]-delta_step, j, ki[0]))
+            for i in range(len(rn)-2):
+                inlines.append("tdata(1, {}, 3, {}) = {:e} , tdata(2, {}, 3, {}) = {:e} ,\n".format(i+2, j, rn[i+1], i+2, j, ki[i+1]))
+            inlines.append("tdata(1, {}, 3, {}) = {:e} , tdata(2, {}, 3, {}) = {:e} ,\n".format(len(rn), j, rn[-1]+delta_step, len(rn), j, ki[-1]))
+
+        inlines.append('ndata( 1, 4, 1) = {} ,\n'.format(len(rn)))
+        inlines.append("tdata(1, 1, 4, 1) = {:e} , tdata(2, 1, 4, 1) = {:e} ,\n".format(rn[0]-delta_step, ke[0]))
+        for i in range(len(rn)-2):
+            inlines.append("tdata(1, {}, 4, 1) = {:e} , tdata(2, {}, 4, 1) = {:e} ,\n".format(i+2, rn[i+1], i+2, ke[i+1]))
+        inlines.append("tdata(1, {}, 4, 1) = {:e} , tdata(2, {}, 4, 1) = {:e} ,\n".format(len(rn), rn[-1]+delta_step, len(rn), ke[-1]))
+
+        # if carbon:
+        #     # Ti is the same for all species, but n changes per species, so chi_i is set separately
+        #     # Assign the same ion thermal diffusion coefficients (transport coefficient 3) from
+        #     # species 1 to all other ion species
+        #     # This seems to be incorrect, it breaks the reading
+        #     for i in range(3, 10):
+        #         inlines.append('addspec( {}, 3, 1) = {} ,\n'.format(i, i))
+
         inlines.append('no_pflux = .true.\n')  # Will use whatever is in b2.transport.inputfile for PFR
         inlines.append('/\n')
         
         # Write out file
         
-        with open(inFile,'w') as f:
+        with open(inFile, 'w') as f:
             for i in range(len(inlines)):
                 f.write(inlines[i])
 
