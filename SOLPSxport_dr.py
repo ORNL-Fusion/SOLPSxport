@@ -80,7 +80,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          carbon=True, use_existing_last10=False, plot_xport_coeffs=True,
          plotall=False, verbose=False, figblock=False):
     """
-    Driver for the code using Osborne profile fits saved in MDSplus
+    Driver for the code, returns an object of class 'SOLPSxport'
 
     Inputs:
       rundir            Location of SOLPS run directory
@@ -123,7 +123,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
       figblock          Set to True if calling from command time and you want to see figures
 
     Returns:
-      Object of class 'SOLPSxport', which can then be used to plot, recall, modify or the saved data
+      Object of class 'SOLPSxport', which can then be used to plot, recall, or modify the saved data
       and rewrite a new b2.transport.inputfile
     """
 
@@ -148,6 +148,8 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
     xp.calcPsiVals(plotit=plotall)
     print("Running getSOLPSlast10Profs")
     xp.getSOLPSlast10Profs(plotit=plotall, use_existing_last10=use_existing_last10)
+    # xp.getProfsOMFIT(prof_folder = prof_folder, prof_filename_prefix = prof_filename_prefix,
+    #                  min_npsi = 100, psiMax = 1.05, plotit = plotall)
     if profiles_fileloc[-4:] == '.pkl' or prunid is not None:
         xp.loadProfDBPedFit(profiles_fileloc, shotnum, ptimeid, prunid, verbose=True)
         print("Populating PedFits")
@@ -228,48 +230,12 @@ if __name__ == '__main__':
     if not py3_9:
         args.chii_eq_chie = False
         args.chie_use_grad = False
-        args.chii_use_grad = True
+        args.chii_use_grad = False
 
     _ = main(gfile_loc=args.gfileloc, profiles_fileloc=args.profilesloc,
              shotnum=args.shotnum, ptimeid=args.timeid, prunid=args.runid,
              chii_eq_chie=args.chii_eq_chie, chie_use_grad=args.chie_use_grad, chii_use_grad=args.chii_use_grad,
              reduce_Ti_fileloc=args.tifileloc, fractional_change=args.fractional_change, figblock=True)
-
-# ----------------------------------------------------------------------------------------
-
-
-def main_omfit(topdir, subfolder, gfile_loc, prof_folder = None,
-               prof_filename_prefix = 'prof171558_3200',
-               new_filename = 'b2.transport.inputfile_new',
-               use_existing_last10 = False,
-               carbon = True, plotall = False, debug_plots = False, plot_xport_coeffs = True):
-    """
-    **This has not yet been fixed to work with the current version of these codes**
-    """
-    print("WARNING: This routine is likely to break")
-    print("         Updates need to be made before it works with OMFIT outputs")
-
-    print("Initializing SOLPSxport")
-    xp = sxp.SOLPSxport(workdir = topdir + subfolder, gfile_loc = gfile_loc, carbon_bool = carbon)
-    print("Running getSOLPSlast10Profs")
-    xp.getSOLPSlast10Profs(plotit = plotall, use_existing_last10 = use_existing_last10)
-    print("Running getProfsOMFIT")
-    xp.getProfsOMFIT(prof_folder = prof_folder, prof_filename_prefix = prof_filename_prefix,
-                     min_npsi = 100, psiMax = 1.05, plotit = plotall)
-    print("Running calcPsiVals")
-    xp.calcPsiVals(plotit = plotall)
-
-    if carbon:
-        print("Running getSOLPSCarbonProfs")
-        xp.getSOLPSCarbonProfs(plotit = plotall)
-
-    print("Running calcXportCoeff")
-    xp.calcXportCoef(plotit = plotall or plot_xport_coeffs, debug_plots = debug_plots)
-
-    print("Writing to " + new_filename)
-    xp.writeXport(new_filename = new_filename)
-
-    return xp
 
 # ----------------------------------------------------------------------------------------
 
@@ -282,9 +248,9 @@ def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
                   carbon = True, plotall = False, plot_xport_coeffs = True,
                   ntim_new = 100, dtim_new = '1.0e-6', Dn_min = 0.0005):
     """
-    This routine runs the main calculation of transport coefficients, then saves
-    the old b2.transport.inputfile and b2fstati files with the iteration number
-    and updates the b2mn.dat file with short time steps in preparation for the new run
+    This routine runs the main calculation of transport coefficients, then saves the old
+    b2.transport.inputfile, b2.transport.parameters and b2fstati files with the iteration
+    number and updates the b2mn.dat file with short time steps in preparation for the new run
 
     Hide input files from this routine by using '_' in the filename after 'b2.transport.inputfile'
     """
@@ -308,6 +274,8 @@ def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
     os.rename('b2fstati', 'b2fstati' + str(inc_num+1))
     os.rename('b2.transport.inputfile', 'b2.transport.inputfile' + str(inc_num+1))
     os.rename(new_filename, 'b2.transport.inputfile')
+    os.rename('b2.transport.parameters_old', 'b2.transport.parameters' + str(inc_num+1))
+
     # os.remove('run.log')  # Leave this in case there was a mistake or you want to make changes
     for filename in allfiles:
         if filename[-7:] == '.last10':
