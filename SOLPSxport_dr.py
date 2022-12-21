@@ -1,10 +1,10 @@
 """
-This driver is used to generate new b2.transport.inputfile files for SOLPS
-that will come closer to matching the experimental upstream profiles.
-If things go well, after several iterations, this will produce radial
-ne, Te and Ti profiles in SOLPS at the outboard midplane that match the
-experimental profiles provided.
-It does this through the generation of an object of class 'SOLPSxport'
+This driver is used to generate new b2.transport.inputfile and
+b2.transport.parameters files for SOLPS that will come closer to
+matching the experimental upstream profiles. If things go well, after
+several iterations, this will produce radial ne, Te and Ti profiles in
+SOLPS at the outboard midplane that match the experimental profiles
+provided. It does this through the generation of an object of class 'SOLPSxport'
 
 The routine "main" runs the sequence in the correct order and returns
 the SOLPSxport object for additional plotting and debugging if necessary
@@ -12,8 +12,9 @@ the SOLPSxport object for additional plotting and debugging if necessary
 
 Instructions for command line call:
 
-->Source SOLPS-ITER setup file for b2plot calls
-->Navigate to run directory
+-> (if python is not already available) -> $ module load python
+-> Source SOLPS-ITER setup file for b2plot calls
+-> Navigate to run directory
 $ python ~/Pytools/SOLPSxport_dr.py -g <gfile location> -s <shot number> -t <profile time ID> -r <profile run ID>
 or if you already have a saved profiles file (.pkl):
 $ python ~/Pytools/SOLPSxport_dr.py -g <gfile location> -p <profiles file location>
@@ -34,7 +35,7 @@ Requirements:
 -An existing SOLPS run, which will be used to estimate the next iteration's
 radial transport coefficients
 -Experimental Te, ne and Ti profiles, preferably saved in the MDSplus database ("Tom's tools")
--Source setup.ksh from a SOLPS-ITER distribution that can run b2plot before launching
+-Source setup.csh from a SOLPS-ITER distribution that can run b2plot before launching
 ipython and importing this module (b2plot is used it grab SOLPS data)
 
 This usually requires several iterations to match the experimental profiles well
