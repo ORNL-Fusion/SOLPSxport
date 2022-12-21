@@ -533,7 +533,7 @@ def read_b2fgmtry(fileloc):
 
 # ----------------------------------------------------------------------------------------
 
-def modify_b2xportparams(fileloc, dperp=None, chieperp=None, chiiperp=None, verbose=False, ndigits=10):
+def modify_b2xportparams(fileloc, dperp=None, chieperp=None, chiiperp=None, verbose=False, ndigits=8):
     """
     Modify b2.transport.parameters file with new transport coefficients
 

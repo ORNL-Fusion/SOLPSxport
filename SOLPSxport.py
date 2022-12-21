@@ -1059,13 +1059,13 @@ class SOLPSxport:
         ax[0, 0].plot(psi_data_fit, neexp / 1.0e19, '--bo', lw = 1, label = 'TS data')
         ax[0, 0].plot(psi_solps, neold / 1.0e19, 'xr', lw = 2, label = 'SOLPS')
         ax[0, 0].set_ylabel('n$_e$ (10$^{19}$ m$^{-3}$)')
-        ax[0, 0].legend(loc = 'best', fontsize=14)
+        ax[0, 0].legend(loc = 'best', fontsize=12)
         ax[0, 0].set_ylim([0, max_ne*headroom])
         ax[0, 0].grid('on')
 
-        ax[1, 0].semilogy(psi_solps, dnew_flux, '-ok', lw = 2, label = 'updated (fluxes)')
-        ax[1, 0].semilogy(psi_solps, dnew_ratio, '-+c', lw = 1, label = 'updated (gradients)')
-        ax[1, 0].semilogy(psi_solps, dold, '-xr', lw = 2, label = 'old')
+        ax[1, 0].semilogy(psi_solps, dnew_flux, '-ok', lw = 2, label = 'Updated (fluxes)')
+        ax[1, 0].semilogy(psi_solps, dnew_ratio, '-+c', lw = 1, label = 'Updated (gradients)')
+        ax[1, 0].semilogy(psi_solps, dold, '-xr', lw = 2, label = 'SOLPS input')
         if coef_limits['Dn_min'] is not None:
             ax[1, 0].semilogy(xlims, [coef_limits['Dn_min'], coef_limits['Dn_min']], '--m')
         if coef_limits['Dn_max'] is not None:
@@ -1075,7 +1075,7 @@ class SOLPSxport:
         ax[1, 0].set_ylim([min_dn/np.sqrt(headroom), max_dn*headroom])
         ax[1, 0].grid('on')
 
-        ax[0, 1].plot(psi_data_fit, teexp / 1.0e3, '--bo', lw = 1, label = 'Data')
+        ax[0, 1].plot(psi_data_fit, teexp / 1.0e3, '--bo', lw = 1, label = 'TS Data')
         ax[0, 1].plot(psi_solps, teold / 1.0e3, 'xr', lw = 2, label = 'SOLPS')
         ax[0, 1].set_ylabel('T$_e$ (keV)')
         ax[0, 1].set_ylim([0, max_Te*headroom])
@@ -1083,9 +1083,9 @@ class SOLPSxport:
         if self.data['workdir_short'] is not None:
             ax[0, 1].set_title(self.data['workdir_short'], fontsize=10)
 
-        ax[1, 1].semilogy(psi_solps, kenew_flux, '-ok', lw = 2, label = 'updated (fluxes)')
-        ax[1, 1].semilogy(psi_solps, kenew_ratio, '-+c', lw = 1, label = 'updated (gradients)')
-        ax[1, 1].semilogy(psi_solps, keold, '-xr', lw = 2, label = 'old')
+        ax[1, 1].semilogy(psi_solps, kenew_flux, '-ok', lw = 2, label = 'Updated (fluxes)')
+        ax[1, 1].semilogy(psi_solps, kenew_ratio, '-+c', lw = 1, label = 'Updated (gradients)')
+        ax[1, 1].semilogy(psi_solps, keold, '-xr', lw = 2, label = 'SOLPS input')
         if coef_limits['chie_min'] is not None:
             ax[1, 1].semilogy(xlims, [coef_limits['chie_min'], coef_limits['chie_min']], '--m')
         if coef_limits['chie_max'] is not None:
@@ -1097,14 +1097,14 @@ class SOLPSxport:
         ax[1, 1].grid('on')
 
         ax[0, 2].plot(psi_solps, tiold / 1.0e3, 'xr', lw = 2, label = 'SOLPS')
-        ax[0, 2].plot(tiexppsi, tiexp / 1.0e3, '--bo', lw = 1, label = 'Data')
+        ax[0, 2].plot(tiexppsi, tiexp / 1.0e3, '--bo', lw = 1, label = 'Exp. Data')
         ax[0, 2].set_ylabel('T$_i$ (keV)')
         ax[0, 2].set_ylim([0, max_Ti*headroom])
         ax[0, 2].grid('on')
 
-        ax[1, 2].semilogy(psi_solps, kinew_flux, '-ok', lw = 2, label = 'updated (fluxes)')
-        ax[1, 2].semilogy(psi_solps, kinew_ratio, '-+c', lw = 1, label = 'updated (gradients)')
-        ax[1, 2].semilogy(psi_solps, kiold, '-xr', lw = 2, label = 'old')
+        ax[1, 2].semilogy(psi_solps, kinew_flux, '-ok', lw = 2, label = 'Updated (fluxes)')
+        ax[1, 2].semilogy(psi_solps, kinew_ratio, '-+c', lw = 1, label = 'Updated (gradients)')
+        ax[1, 2].semilogy(psi_solps, kiold, '-xr', lw = 2, label = 'SOLPS input')
         if coef_limits['chii_min'] is not None:
             ax[1, 2].semilogy(xlims, [coef_limits['chii_min'], coef_limits['chii_min']], '--m')
         if coef_limits['chii_max'] is not None:
