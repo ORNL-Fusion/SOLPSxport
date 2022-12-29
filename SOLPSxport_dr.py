@@ -9,6 +9,8 @@ provided. It does this through the generation of an object of class 'SOLPSxport'
 The routine "main" runs the sequence in the correct order and returns
 the SOLPSxport object for additional plotting and debugging if necessary
 
+**So far this is only coded for cases with D or D+C, no other impurities will work yet**
+
 
 Instructions for command line call:
 
@@ -74,7 +76,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          profiles_fileloc=None, shotnum=None, ptimeid=None, prunid=None,
          nefit='tanh', tefit='tanh', ncfit='spl', chii_eq_chie = False,
          Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=100,
-         chie_use_grad = False, chii_use_grad = True, modify_b2xportparams = True,
+         chie_use_grad = False, chii_use_grad = True, new_b2xportparams = True,
          chie_min = 0.01, chii_min = 0.01, chie_max = 200, chii_max = 200,
          reduce_Ti_fileloc='/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
          fractional_change = 1, exp_prof_rad_shift = 0,
@@ -104,8 +106,8 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                         (since we know Ti measurement from CER is incorrect in SOL)
       chie/i_use_grad   Use ratio of the gradients for new values of chi_e/i, rather than fluxes
                         For some reason I don't understand (bug?), flux formula doesn't work well for chi_i
-      modify_b2xportparams Modifies b2.transport.parameters so that D, X are set in PFR to match first
-                           radial cell of SOL (default is on)
+      new_b2xportparams Produces updated b2.transport.parameters so that D, X are set in PFR to match first
+                        radial cell of SOL (default is on)
       use_existing_last10  Set to True if you have already run 2d_profiles to produce .last10 files
                            in the run folder to save time. Otherwise this will call 2d_profiles so
                            that you don't accidentally use .last10 files from a previous iteration
@@ -169,14 +171,15 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
     xp.calcXportCoef(plotit=plotall or plot_xport_coeffs, reduce_Ti_fileloc=reduce_Ti_fileloc, Dn_min=Dn_min,
                      ti_decay_len=ti_decay_len, vrc_mag=vrc_mag, verbose=verbose, Dn_max=Dn_max,
                      fractional_change=fractional_change, exp_prof_rad_shift=exp_prof_rad_shift,
-                     chii_min=chii_min, chii_max=chii_max, chie_min=chie_min, chie_max=chie_max, figblock=figblock)
+                     chii_min=chii_min, chii_max=chii_max, chie_min=chie_min, chie_max=chie_max,
+                     chii_eq_chie=chii_eq_chie, figblock=figblock)
 
     print("Running writeXport")
-    xp.writeXport(new_filename=new_filename, chie_use_grad=chie_use_grad, chii_use_grad=chii_use_grad, chii_eq_chie=chii_eq_chie)
+    xp.writeXport(new_filename=new_filename, chie_use_grad=chie_use_grad, chii_use_grad=chii_use_grad,
+                  chii_eq_chie=chii_eq_chie)
 
     # Modify b2.transport.parameters so that PFR has same transport coefficients as first cell of SOL
-    if modify_b2xportparams:
-        # Need to find this
+    if new_b2xportparams:
         psin = list(xp.data['solpsData']['psiSOLPS'])
         first_sol_ind = psin.index(min([i for i in psin if i > 1]))
         dperp_pfr = xp.data['solpsData']['xportCoef']['dnew_flux'][first_sol_ind]
@@ -194,8 +197,8 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
             else:
                 chiiperp_pfr = xp.data['solpsData']['xportCoef']['kinew_flux'][first_sol_ind]
 
-        sut.modify_b2xportparams(fileloc='./b2.transport.parameters',
-                                 dperp=dperp_pfr, chieperp=chieperp_pfr, chiiperp=chiiperp_pfr, verbose=verbose)
+        sut.new_b2xportparams(fileloc='./b2.transport.parameters',
+                                 dperp=dperp_pfr, chieperp=chieperp_pfr, chiiperp=chiiperp_pfr, verbose=True)
 
     return xp
 
@@ -244,7 +247,7 @@ if __name__ == '__main__':
 def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
                   profiles_fileloc = None, shotnum = None, ptimeid = None, prunid = None,
                   use_existing_last10 = False, chie_use_grad = False, chii_use_grad = False,
-                  modify_b2xportparams = True,
+                  new_b2xportparams = True,
                   reduce_Ti_fileloc = '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
                   carbon = True, plotall = False, plot_xport_coeffs = True,
                   ntim_new = 100, dtim_new = '1.0e-6', Dn_min = 0.0005):
@@ -260,7 +263,7 @@ def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
               profiles_fileloc = profiles_fileloc, shotnum = shotnum, ptimeid = ptimeid,
               prunid = prunid, Dn_min = Dn_min, use_existing_last10 = use_existing_last10,
               chie_use_grad=chie_use_grad, chii_use_grad=chii_use_grad,
-              modify_b2xportparams=modify_b2xportparams,
+              new_b2xportparams=new_b2xportparams,
               reduce_Ti_fileloc = reduce_Ti_fileloc, carbon = carbon, plotall = plotall,
               plot_xport_coeffs = plot_xport_coeffs, verbose=False)
     
@@ -275,7 +278,9 @@ def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
     os.rename('b2fstati', 'b2fstati' + str(inc_num+1))
     os.rename('b2.transport.inputfile', 'b2.transport.inputfile' + str(inc_num+1))
     os.rename(new_filename, 'b2.transport.inputfile')
-    os.rename('b2.transport.parameters_old', 'b2.transport.parameters' + str(inc_num+1))
+    if new_b2xportparams:
+        os.rename('b2.transport.parameters', 'b2.transport.parameters' + str(inc_num+1))
+        os.rename('b2.transport.parameters_new', 'b2.transport.parameters')
 
     # os.remove('run.log')  # Leave this in case there was a mistake or you want to make changes
     for filename in allfiles:
@@ -319,7 +324,6 @@ def track_inputfile_iterations(rundir=None, carbon=True, cmap='viridis', Dn_scal
 
     Requires everything to be on the same grid with the same species
     """
-    from SOLPSxport.SOLPSutils import read_b2_transport_inputfile
 
     if rundir is None:
         print("No run directory given, selecting cwd:")
@@ -349,7 +353,7 @@ def track_inputfile_iterations(rundir=None, carbon=True, cmap='viridis', Dn_scal
     f, ax = plt.subplots(3, sharex='all')
 
     for i in range(ninfiles):
-        infile = read_b2_transport_inputfile(rundir + inputfile_list[i], carbon=carbon)
+        infile = sut.read_b2_transport_inputfile(rundir + inputfile_list[i], carbon=carbon)
 
         sep_ind = np.argmin(np.abs(infile['rn']))
         dn_sep[i] = infile['dn'][sep_ind]

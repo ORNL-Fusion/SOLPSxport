@@ -533,9 +533,10 @@ def read_b2fgmtry(fileloc):
 
 # ----------------------------------------------------------------------------------------
 
-def modify_b2xportparams(fileloc, dperp=None, chieperp=None, chiiperp=None, verbose=False, ndigits=8):
+def new_b2xportparams(fileloc, dperp=None, chieperp=None, chiiperp=None, verbose=False, ndigits=8):
     """
-    Modify b2.transport.parameters file with new transport coefficients
+    Update b2.transport.parameters file with new transport coefficients
+    Leaves old file in place, produces new file with appended name '_new'
 
     Inputs:
       fileloc    Should end in 'b2.transport.parameters' unless you're doing something weird
@@ -595,14 +596,15 @@ def modify_b2xportparams(fileloc, dperp=None, chieperp=None, chiiperp=None, verb
                 eq_ind = l.rfind('=')
                 lines[i] = l[:eq_ind + 1] + str(round(chieperp, ndigits)) + ',\n'
 
-    rename(fileloc, fileloc + '_old')
+    # rename(fileloc, fileloc + '_old')
     if verbose:
-        print('Old version of ' + fileloc + ' moved to ' + fileloc + '_old')
+        if fileloc[:2] == './':
+            fileloc_print = fileloc[2:]
+        else:
+            fileloc_print = fileloc
+        print('New version of ' + fileloc_print + ' generated: ' + fileloc_print + '_new')
 
-    if verbose:
-        print('Modifying transport coefficients in ' + fileloc)
-
-    with open(fileloc, 'w') as f:
+    with open(fileloc + '_new', 'w') as f:
         for i in range(len(lines)):
             f.write(lines[i])
 
