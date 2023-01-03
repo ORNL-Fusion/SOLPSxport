@@ -75,9 +75,9 @@ plt.rcParams.update({'mathtext.default': 'regular'})
 def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          profiles_fileloc=None, shotnum=None, ptimeid=None, prunid=None,
          nefit='tanh', tefit='tanh', ncfit='spl', chii_eq_chie = False,
-         Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=100,
+         Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=200,
          chie_use_grad = False, chii_use_grad = True, new_b2xportparams = True,
-         chie_min = 0.01, chii_min = 0.01, chie_max = 200, chii_max = 200,
+         chie_min = 0.01, chii_min = 0.01, chie_max = 400, chii_max = 400,
          reduce_Ti_fileloc='/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
          fractional_change = 1, exp_prof_rad_shift = 0,
          carbon=True, use_existing_last10=False, plot_xport_coeffs=True,
@@ -174,7 +174,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                      chii_min=chii_min, chii_max=chii_max, chie_min=chie_min, chie_max=chie_max,
                      chii_eq_chie=chii_eq_chie, figblock=figblock)
 
-    print("Running writeXport")
+    print("Writing to: " + new_filename)
     xp.writeXport(new_filename=new_filename, chie_use_grad=chie_use_grad, chii_use_grad=chii_use_grad,
                   chii_eq_chie=chii_eq_chie)
 

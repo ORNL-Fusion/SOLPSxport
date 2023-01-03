@@ -252,13 +252,20 @@ class SOLPSxport:
                         npsi=250, psinMax=None, plotit=False):
         """
         Get the fitted tanh profiles (need to have run loadProfDBPedFit already)
+        Should nominally be able to handle other fit types, but only implemented 'tanh' and
+        'tnh0' for electron profiles and 'tanh' and 'spl' for carbon density profiles so far
 
         Inputs:
-          XXmod   Fit used for each parameter
+          XXmod   Fit used for each parameter (only 'tanh' and 'tnh0' implemented and tested
+                  for electron profiles so far, or 'tanh' and 'spl' for carbon density profiles)
           npsi    Number of points to populate full radial fit, from psin=0 (linearly distributed)
           psinMax End of radial grid to populate, in units of psin
                   (this defaults to be slightly larger than the SOLPS grid if nothing is given)
         """
+        if (nemod not in ['tanh', 'tnh0']) or (temod not in ['tanh', 'tnh0']):
+            print("ERROR: Cannot yet populate electron profile fits other than 'tanh' or 'tnh0'")
+            return
+
         if psinMax is None:
             if 'psiSOLPS' in self.data['solpsData'].keys():
                 psinMax = np.max(self.data['solpsData']['psiSOLPS']) + 0.001
@@ -273,21 +280,13 @@ class SOLPSxport:
         # !!! Need to subtract shift from psiProf to move separatrix for power balance !!!
 
         # make ne profile
-        if nemod == 'tnh0':
-            necoef = self.data['pedData']['fitVals']['netnh0psi']['y']
-            neprof = sut.calcTanhMulti(necoef,psiProf)
-        elif nemod == 'tanh':
-            necoef = self.data['pedData']['fitVals']['netanhpsi']['y']
-            neprof = sut.calcTanhMulti(necoef,psiProf)
+        necoef = self.data['pedData']['fitVals']['ne' + nemod + 'psi']['y']
+        neprof = sut.calcTanhMulti(necoef, psiProf)
         self.data['pedData']['fitProfs']['neprof'] = neprof
             
         # make Te profile
-        if temod == 'tnh0':
-            tecoef = self.data['pedData']['fitVals']['tetnh0psi']['y']
-            teprof = sut.calcTanhMulti(tecoef,psiProf)
-        elif nemod == 'tanh':
-            tecoef = self.data['pedData']['fitVals']['tetanhpsi']['y']
-            teprof = sut.calcTanhMulti(tecoef,psiProf)
+        tecoef = self.data['pedData']['fitVals']['te' + temod + 'psi']['y']
+        teprof = sut.calcTanhMulti(tecoef, psiProf)
         self.data['pedData']['fitProfs']['teprof'] = teprof
         
         if ncmod == 'spl':
@@ -303,6 +302,12 @@ class SOLPSxport:
             nccoef = self.data['pedData']['fitVals']['nztanhpsi']['y']
             ncprof = sut.calcTanhMulti(nccoef,psiProf)
             self.data['pedData']['fitProfs']['ncprof'] = ncprof * neprof / 6
+
+        if np.any(neprof < 0) or np.any(teprof < 0):
+            print("WARNING: Experimental profile is negative!!!")
+            print("Either (a) modify profile by using a different fit, (b) set a " +
+                  "decay length using 'enforce_decay_length', or (c) ignore the profile" +
+                  " fit and set a constant diffusivity using 'flatSOLcoeffs'")
             
         if plotit:
             f, ax = plt.subplots(2, sharex = 'all')
@@ -421,6 +426,21 @@ class SOLPSxport:
             plt.show(block=False)
 
         self.data['pedData']['fitVals']['ti_mod'] = {'x':xrad, 'y':ti_mod}
+
+    # ----------------------------------------------------------------------------------------
+
+    def enforce_decay_length(self, prof_choice, sol_points = None, max_psin = 1.1, decay_length = 0.015,
+                             rad_loc_for_exp_decay = 1.0, min_val = 1, plotit = False):
+        """
+        Enforce an exponential decay length in the SOL beyond a designated position
+
+        Ensures smooth profiles, and can avoid dealing with density shoulder or unphysical measurements
+
+        Inputs:
+          prof_choice    Choose from Te, ne, or Ti
+
+        """
+        pass
 
     # ----------------------------------------------------------------------------------------
         
@@ -622,7 +642,6 @@ class SOLPSxport:
         # dummy, hy1 = sut.B2pl("hy1 writ jxa f.y")  # not used anymore
         dummy, qe = sut.B2pl("fhey sy m/ writ jxa f.y")
         dummy, qi = sut.B2pl("fhiy sy m/ writ jxa f.y")
-        
 
         for c in [fluxTot, fluxConv]:
             if not c:
@@ -740,7 +759,7 @@ class SOLPSxport:
     def calcXportCoef(self, plotit = True, Dn_min = 0.001, chie_min = 0.01, chii_min = 0.01,
                       Dn_max = 10, chie_max = 200, chii_max = 200, vrc_mag=0.0, ti_decay_len = 0.015,
                       reduce_Ti_fileloc = '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
-                      fractional_change = 1, exp_prof_rad_shift = 0,
+                      fractional_change = 1, exp_prof_rad_shift = 0, chii_eq_chie = False,
                       use_ratio_bc = True, debug_plots = False, verbose = False, figblock = False):
         """
         Calculates the transport coefficients to be written into b2.transport.inputfile
@@ -959,7 +978,7 @@ class SOLPSxport:
                                                'vr_carbon': vr_carbon, 'D_carbon': D_carbon,
                                                'limits': coef_limits}
         if plotit:
-            self.plotXportCoef(figblock = figblock)
+            self.plotXportCoef(figblock=figblock, plot_Ti = not chii_eq_chie)
 
         if debug_plots:
             plt.figure()
@@ -990,21 +1009,37 @@ class SOLPSxport:
 
     # ----------------------------------------------------------------------------------------
 
-    def flatSOLcoeffs(self, plotit = True, verbose = False, figblock = False):
+    def flatSOLcoeffs(self, prof_choice, psin_start, coef_val, plotit=False, figblock = False):
         """
-        Manually change transport coefficients in the SOL to some specified value
-        """
-        pass
+        Manually change transport coefficients outside of some position to a specified value
+        Useful if profile flattens (e.g., a density shoulder) and a precise match is difficult or unnecessary
 
-        self.data['solpsData']['xportCoef'] = {'dnew_ratio': dnew_ratio, 'dnew_flux': dnew_flux,
-                                               'kenew_ratio': kenew_ratio, 'kenew_flux': kenew_flux,
-                                               'kinew_ratio': kinew_ratio, 'kinew_flux': kinew_flux,
-                                               'vr_carbon': vr_carbon, 'D_carbon': D_carbon,
-                                               'limits': coef_limits}
+        Inputs:
+          prof_choice    Choose from 'd' (particle diffusivity), 'ke' (electron thermal diffusivity),
+                         or 'ki' (ion thermal diffusivity)
+          psin_start     Starting position to set the flat coefficients (goes outward from here)
+
+        """
+        if prof_choice.lower() not in ['d', 'ke', 'ki']:
+            print('WARNING: invalid choice for diffusion coefficient to set in SOL')
+            print('  you selected: ' + prof_choice)
+            print('  available options: "d" (particle diffusivity), "ke" (electron thermal diffusivity),' +
+                  ' or "ki" (ion thermal diffusivity)')
+            return
+
+        psi_solps = self.data['solpsData']['psiSOLPS']
+        ratio_key = prof_choice.lower() + 'new_ratio'
+        flux_key = prof_choice.lower() + 'new_flux'
+
+        self.data['solpsData']['xportCoef'][ratio_key][psi_solps > psin_start] = coef_val
+        self.data['solpsData']['xportCoef'][flux_key][psi_solps > psin_start] = coef_val
+
+        if plotit:
+            self.plotXportCoef(plot_Ti=(prof_choice.lower() == 'ki'), figblock=figblock)
 
     # ----------------------------------------------------------------------------------------
 
-    def plotXportCoef(self, figblock=False, figsize=(14,7)):
+    def plotXportCoef(self, figblock=False, figsize=(14,7), plot_Ti = False):
         """
         Plot the upstream profiles from SOLPS compared to the experiment
         along with the corresponding updated transport coefficients
@@ -1021,13 +1056,13 @@ class SOLPSxport:
         psi_data_fit = self.data['pedData']['fitPsiProf']
         neexp = 1.0e20 * self.data['pedData']['fitProfs']['neprof']
         teexp = 1.0e3 * self.data['pedData']['fitProfs']['teprof']
+
         if 'ti_mod' in self.data['pedData']['fitVals'].keys():
             tiexp = 1.0e3*self.data['pedData']['fitVals']['ti_mod']['y']
             tiexppsi = self.data['pedData']['fitVals']['ti_mod']['x']
         else:
             tiexppsi = self.data['pedData']['fitVals']['tisplpsi']['x']
             tiexp = 1.0e3*self.data['pedData']['fitVals']['tisplpsi']['y']
-
 
         psi_solps = self.data['solpsData']['psiSOLPS']
         neold = self.data['solpsData']['last10']['ne']
@@ -1055,7 +1090,12 @@ class SOLPSxport:
         headroom = 1.05
         xlims = [np.min(psi_solps) - 0.01, np.max(psi_solps) + 0.01]
 
-        f, ax = plt.subplots(2, 3, sharex = 'all', figsize=figsize)
+        if plot_Ti:
+            nplots = 3
+        else:
+            nplots = 2
+
+        f, ax = plt.subplots(2, nplots, sharex = 'all', figsize=figsize)
         ax[0, 0].plot(psi_data_fit, neexp / 1.0e19, '--bo', lw = 1, label = 'TS data')
         ax[0, 0].plot(psi_solps, neold / 1.0e19, 'xr', lw = 2, label = 'SOLPS')
         ax[0, 0].set_ylabel('n$_e$ (10$^{19}$ m$^{-3}$)')
@@ -1096,26 +1136,27 @@ class SOLPSxport:
         ax[1, 1].set_ylim([min_ke/np.sqrt(headroom), max_ke*headroom])
         ax[1, 1].grid('on')
 
-        ax[0, 2].plot(psi_solps, tiold / 1.0e3, 'xr', lw = 2, label = 'SOLPS')
-        ax[0, 2].plot(tiexppsi, tiexp / 1.0e3, '--bo', lw = 1, label = 'Exp. Data')
-        ax[0, 2].set_ylabel('T$_i$ (keV)')
-        ax[0, 2].set_ylim([0, max_Ti*headroom])
-        ax[0, 2].grid('on')
+        if plot_Ti:
+            ax[0, 2].plot(psi_solps, tiold / 1.0e3, 'xr', lw = 2, label = 'SOLPS')
+            ax[0, 2].plot(tiexppsi, tiexp / 1.0e3, '--bo', lw = 1, label = 'Exp. Data')
+            ax[0, 2].set_ylabel('T$_i$ (keV)')
+            ax[0, 2].set_ylim([0, max_Ti*headroom])
+            ax[0, 2].grid('on')
 
-        ax[1, 2].semilogy(psi_solps, kinew_flux, '-ok', lw = 2, label = 'Updated (fluxes)')
-        ax[1, 2].semilogy(psi_solps, kinew_ratio, '-+c', lw = 1, label = 'Updated (gradients)')
-        ax[1, 2].semilogy(psi_solps, kiold, '-xr', lw = 2, label = 'SOLPS input')
-        if coef_limits['chii_min'] is not None:
-            ax[1, 2].semilogy(xlims, [coef_limits['chii_min'], coef_limits['chii_min']], '--m')
-        if coef_limits['chii_max'] is not None:
-            ax[1, 2].semilogy(xlims, [coef_limits['chii_max'], coef_limits['chii_max']], '--m')
-        ax[1, 2].set_ylabel('$\chi_i$ (m$^2$/s)')
-        ax[1, 2].set_xlabel('$\psi_N$')
-        ax[1, 2].set_xlim(xlims)
-        ax[1, 2].set_ylim([min_ki/np.sqrt(headroom), max_ki*headroom])
-        ax[1, 2].grid('on')
-        ax[1, 2].legend(loc='best', fontsize=10)
+            ax[1, 2].semilogy(psi_solps, kinew_flux, '-ok', lw = 2, label = 'Updated (fluxes)')
+            ax[1, 2].semilogy(psi_solps, kinew_ratio, '-+c', lw = 1, label = 'Updated (gradients)')
+            ax[1, 2].semilogy(psi_solps, kiold, '-xr', lw = 2, label = 'SOLPS input')
+            if coef_limits['chii_min'] is not None:
+                ax[1, 2].semilogy(xlims, [coef_limits['chii_min'], coef_limits['chii_min']], '--m')
+            if coef_limits['chii_max'] is not None:
+                ax[1, 2].semilogy(xlims, [coef_limits['chii_max'], coef_limits['chii_max']], '--m')
+            ax[1, 2].set_ylabel('$\chi_i$ (m$^2$/s)')
+            ax[1, 2].set_xlabel('$\psi_N$')
+            ax[1, 2].set_xlim(xlims)
+            ax[1, 2].set_ylim([min_ki/np.sqrt(headroom), max_ki*headroom])
+            ax[1, 2].grid('on')
 
+        ax[1, -1].legend(loc='best', fontsize=10)
         ax[0, 0].set_xticks(np.arange(0.84, 1.05, 0.04))
         ax[0, 0].set_xlim(xlims)
         plt.tight_layout()
