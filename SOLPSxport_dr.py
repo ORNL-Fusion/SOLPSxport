@@ -74,13 +74,13 @@ plt.rcParams.update({'mathtext.default': 'regular'})
 
 def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          profiles_fileloc=None, shotnum=None, ptimeid=None, prunid=None,
-         nefit='tanh', tefit='tanh', ncfit='spl', chii_eq_chie = False,
+         nefit='tanh', tefit='tanh', ncfit='spl', chii_eq_chie = False, ti_eq_te = False,
          Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=200,
-         chie_use_grad = False, chii_use_grad = True, new_b2xportparams = True,
+         chie_use_grad = False, chii_use_grad = False, new_b2xportparams = True,
          chie_min = 0.01, chii_min = 0.01, chie_max = 400, chii_max = 400,
          reduce_Ti_fileloc='/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
          fractional_change = 1, exp_prof_rad_shift = 0,
-         carbon=True, use_existing_last10=False, plot_xport_coeffs=True,
+         impurity_list = ['c'], use_existing_last10=False, plot_xport_coeffs=True,
          plotall=False, verbose=False, figblock=False):
     """
     Driver for the code, returns an object of class 'SOLPSxport'
@@ -105,7 +105,6 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                         for experimental Ti, beginning at separatrix
                         (since we know Ti measurement from CER is incorrect in SOL)
       chie/i_use_grad   Use ratio of the gradients for new values of chi_e/i, rather than fluxes
-                        For some reason I don't understand (bug?), flux formula doesn't work well for chi_i
       new_b2xportparams Produces updated b2.transport.parameters so that D, X are set in PFR to match first
                         radial cell of SOL (default is on)
       use_existing_last10  Set to True if you have already run 2d_profiles to produce .last10 files
@@ -117,13 +116,13 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                         you want to take a smaller step
       exp_prof_rad_shift: Apply a radial shift to experimental profiles
                         (in units of psi_n, positive shifts profiles outward so separatrix is hotter)
-      carbon            Set to False if SOLPS run includes D only
-                        note: this routine is not yet generalized to anything other than D or D+C
+      impurity_list     List of all the impurities included in the plasma simulation
+                        (not tested yet for anything other than 'c')
       plot_xport_coeffs Plot the SOLPS and experimental profiles, along with the previous
                         and next iteration of transport coefficients
       plotall           Produce a bunch more plots from the subroutines used in the process
       verbose           Set to True to print a lot more outputs to terminal
-      figblock          Set to True if calling from command time and you want to see figures
+      figblock          Set to True if calling from command line and you want to see figures
 
     Returns:
       Object of class 'SOLPSxport', which can then be used to plot, recall, or modify the saved data
@@ -146,24 +145,34 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
     shotnum = int(shotnum)
 
     print("Initializing SOLPSxport")
-    xp = sxp.SOLPSxport(workdir=os.getcwd(), gfile_loc=gfile_loc, carbon_bool=carbon)
+    xp = sxp.SOLPSxport(workdir=os.getcwd(), gfile_loc=gfile_loc, impurity_list=impurity_list)
     print("Running calcPsiVals")
     xp.calcPsiVals(plotit=plotall)
     print("Running getSOLPSlast10Profs")
     xp.getSOLPSlast10Profs(plotit=plotall, use_existing_last10=use_existing_last10)
     # xp.getProfsOMFIT(prof_folder = prof_folder, prof_filename_prefix = prof_filename_prefix,
     #                  min_npsi = 100, psiMax = 1.05, plotit = plotall)
-    if profiles_fileloc[-4:] == '.pkl' or prunid is not None:
+    if profiles_fileloc is None:  # try to call MDSplus only if no profiles_fileloc is given
+        if prunid is not None:
+            xp.loadProfDBPedFit(profiles_fileloc, shotnum, ptimeid, prunid, verbose=True)
+            print("Populating PedFits from MDSplus database")
+            xp.populatePedFits(nemod=nefit, temod=tefit, ncmod=ncfit, npsi=250, plotit=plotall)
+        else:
+            print("ERROR: Need to provide eiter a profiles fileloc or MDSplus profile runid")
+            return
+    elif profiles_fileloc[-4:] == '.pkl':
         xp.loadProfDBPedFit(profiles_fileloc, shotnum, ptimeid, prunid, verbose=True)
         print("Populating PedFits")
         xp.populatePedFits(nemod=nefit, temod=tefit, ncmod=ncfit, npsi=250, plotit=plotall)
+    # elif profiles_fileloc[:-5] == '.mast':
+    #     xp.readMastData(profiles_fileloc)
     else:
         print("Loading profiles from pfile")
         xp.load_pfile(profiles_fileloc, plotit=plotall)
     print("Getting flux profiles")
     xp.getSOLPSfluxProfs(plotit=plotall)
 
-    if carbon:
+    if impurity_list:
         print("Running getSOLPSCarbonProfs")
         xp.getSOLPSCarbonProfs(plotit=plotall)
 
@@ -198,7 +207,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                 chiiperp_pfr = xp.data['solpsData']['xportCoef']['kinew_flux'][first_sol_ind]
 
         sut.new_b2xportparams(fileloc='./b2.transport.parameters',
-                                 dperp=dperp_pfr, chieperp=chieperp_pfr, chiiperp=chiiperp_pfr, verbose=True)
+                              dperp=dperp_pfr, chieperp=chieperp_pfr, chiiperp=chiiperp_pfr, verbose=True)
 
     return xp
 
@@ -226,7 +235,7 @@ if __name__ == '__main__':
         # parser.set_defaults(chii_eq_chie=False)
         parser.add_argument('--chie_use_grad', action='store_true', default=False)
         # parser.set_defaults(chie_use_grad=False)
-        parser.add_argument('--chii_use_grad', action='store_true', default=True)
+        parser.add_argument('--chii_use_grad', action='store_true', default=False)
         # parser.set_defaults(chii_use_grad=True)
 
     args = parser.parse_args()
@@ -249,7 +258,7 @@ def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
                   use_existing_last10 = False, chie_use_grad = False, chii_use_grad = False,
                   new_b2xportparams = True,
                   reduce_Ti_fileloc = '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
-                  carbon = True, plotall = False, plot_xport_coeffs = True,
+                  impurity_list=['c'], plotall = False, plot_xport_coeffs = True,
                   ntim_new = 100, dtim_new = '1.0e-6', Dn_min = 0.0005):
     """
     This routine runs the main calculation of transport coefficients, then saves the old
@@ -264,7 +273,7 @@ def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
               prunid = prunid, Dn_min = Dn_min, use_existing_last10 = use_existing_last10,
               chie_use_grad=chie_use_grad, chii_use_grad=chii_use_grad,
               new_b2xportparams=new_b2xportparams,
-              reduce_Ti_fileloc = reduce_Ti_fileloc, carbon = carbon, plotall = plotall,
+              reduce_Ti_fileloc = reduce_Ti_fileloc, impurity_list=impurity_list, plotall = plotall,
               plot_xport_coeffs = plot_xport_coeffs, verbose=False)
     
     allfiles = os.listdir('.')
@@ -314,7 +323,7 @@ def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
 # ----------------------------------------------------------------------------------------
 
 
-def track_inputfile_iterations(rundir=None, carbon=True, cmap='viridis', Dn_scalar = 100):
+def track_inputfile_iterations(rundir=None, impurity_list=['c'], cmap='viridis', Dn_scalar = 100):
     """
     Track the evolution of the b2.transport.inputfile transport
     coefficients through and evolving transport matching job
@@ -353,7 +362,7 @@ def track_inputfile_iterations(rundir=None, carbon=True, cmap='viridis', Dn_scal
     f, ax = plt.subplots(3, sharex='all')
 
     for i in range(ninfiles):
-        infile = sut.read_b2_transport_inputfile(rundir + inputfile_list[i], carbon=carbon)
+        infile = sut.read_b2_transport_inputfile(rundir + inputfile_list[i], carbon=('c' in impurity_list))
 
         sep_ind = np.argmin(np.abs(infile['rn']))
         dn_sep[i] = infile['dn'][sep_ind]

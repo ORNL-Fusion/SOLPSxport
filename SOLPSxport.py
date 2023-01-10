@@ -25,14 +25,14 @@ eV = 1.60217662e-19
 
 class SOLPSxport:
 
-    def __init__(self, workdir, gfile_loc, carbon_bool = True, b2plot_dev_x11 = False):
+    def __init__(self, workdir, gfile_loc, impurity_list = ['c'], b2plot_dev_x11 = False):
         """
         Make sure you source setup.csh or setup.ksh before running any of this!
         
         Inputs:
           workdir         Directory with the SOLPS outputs
           gfile_loc       location of corresponding g file
-          carbon_bool     Set to False if carbon is not in the run
+          impurity_list   List of all the impurity species included in the plasma simulation
           b2plot_dev_x11  Set to True if you want a figure to pop up for every b2plot call
         """
         shot_loc_in_gfile_string = gfile_loc.rfind('g')
@@ -43,9 +43,9 @@ class SOLPSxport:
             workdir_short = workdir[shot_ind_in_workdir:]
         else:
             workdir_short = None
-            
-        self.data = {'workdir':workdir, 'workdir_short':workdir_short, 'gfile_loc': gfile_loc,
-                     'pedData':{}, 'solpsData':{'profiles':{}}, 'carbon':carbon_bool, 'shot':shot}
+
+        self.data = {'workdir':workdir, 'workdir_short':workdir_short, 'gfile_loc': gfile_loc, 'pedData':{},
+                     'solpsData':{'profiles':{}}, 'impurities':[imp.lower() for imp in impurity_list], 'shot':shot}
 
         if 'B2PLOT_DEV' in os.environ.keys():
             if (not b2plot_dev_x11) and os.environ['B2PLOT_DEV'] == 'x11 ps':
@@ -166,11 +166,11 @@ class SOLPSxport:
                          timeid = None, runid = None, verbose = True):
         """
         Either (1) provide the location of the saved profiles file
-                   (should have extension *.pkl for now, json not set up yet)
+                   (should have extension *.pkl)
             or (2) give info to retrieve it from MDSplus
 
             (1) can be written using getProfDBPedFit from SOLPSutils.py (easily reproduced manually if needed)
-            (2) requires access to atlas.gat.com
+            (2) requires access to atlas.gat.com (probably running on Iris or Omega at GA)
         """
         
         if profiles_file is None:
@@ -189,9 +189,21 @@ class SOLPSxport:
                     self.data['pedData']['fitVals'] = pickle.load(f)
 
             else:
-                import json
+                print("ERROR: Cannot open ProfDB (Tom's Tools) profile file if not formatted as .pkl")
+                # import json
+                #
+                # self.data['pedData']['fitVals'] = json.load(open(profiles_file))
 
-                self.data['pedData']['fitVals'] = json.load(open(profiles_file))
+    # ----------------------------------------------------------------------------------------
+
+    # def readMastData(self):
+    #
+    #     self.data['pedData']['fitPsiProf'] =
+    #     self.data['pedData']['fitProfs']['neprof'] =
+    #     self.data['pedData']['fitProfs']['teprof'] =
+    #
+    #     try:
+    #         self.data['pedData']['fitProfs']['tiprof'] =
 
     # ----------------------------------------------------------------------------------------
     
@@ -490,7 +502,7 @@ class SOLPSxport:
             
             # Carbon profiles
             
-            if self.data['carbon']:
+            if 'c' in self.data['impurities']:
                 self.data['pedData']['fitVals']['nedatpsi']['x'] = psin[fit]
                 self.data['pedData']['fitVals']['nedatpsi']['y'] = vals['n_e'] / 1.0e20
                 
@@ -790,7 +802,8 @@ class SOLPSxport:
         keold = self.data['solpsData']['last10']['ke']
         tiold = self.data['solpsData']['last10']['ti']
         kiold = self.data['solpsData']['last10']['ki']
-        if self.data['carbon']:
+
+        if self.data['impurities']:
             ndold = self.data['solpsData']['profiles']['nD']
         else:
             ndold = neold
@@ -946,8 +959,8 @@ class SOLPSxport:
         
         
         # Carbon transport coefficients
-        
-        if self.data['carbon']:
+
+        if 'c' in self.data['impurities']:
             # vrc_mag = 20.0  # 60 for gauss
             vr_pos = 0.97
             # vr_wid = 0.02
@@ -998,7 +1011,7 @@ class SOLPSxport:
             plt.ylabel('T$_i$ (keV)')
             plt.legend(loc='best')
 
-            if self.data['carbon']:
+            if 'c' in self.data['impurities']:
                 plt.figure()
                 plt.plot(psi_solps, dnew_ratio, '-or', label='dnew_ratio')
                 plt.plot(psi_solps, dnew_flux, '-ob', label='dnew_flux')
@@ -1368,10 +1381,15 @@ class SOLPSxport:
                              factor proportional to the difference in core flux between the two cases)
           chii_eq_chie       Set chi_i = chi_e, if ion data is bad or non-existent (default = False)
         """
-        if self.data['carbon']:
-            species_nums = [1, 3, 4, 5, 6, 7, 8, 9]  # Exclude fluid neutral C
-        else:
-            species_nums = [1]  # 0 is fluid neutral D, 1 is D+
+        # dictionary defining number of electrons for possible impurity species
+        n_electrons = {'he':2, 'li':3, 'be':4, 'b':5, 'c':6, 'n':7, 'ne':10, 'ar':18, 'kr':36, 'w':74}
+
+        species_nums = [1]  # indeces of all plasma species (0 is fluid neutral D, 1 is D+)
+        next_species = 3  # Exclude fluid neutrals (0, 2, 9, ...)
+
+        for imp in self.data['impurities']:  # append list of plasma species indeces with all included impurities
+            species_nums = species_nums + list(range(next_species, next_species + n_electrons[imp]))
+            next_species += n_electrons[imp] + 1  # exclude fluid neutrals
 
         wdir = self.data['workdir']
         inFile = os.path.join(wdir, new_filename)
@@ -1488,55 +1506,48 @@ class SOLPSxport:
             inlines.append("tdata(1, {}, 4, 1) = {:e} , tdata(2, {}, 4, 1) = {:e} ,\n".format(len(rn)+2, rn[-1] + 0.005, len(rn)+2, ki[-1]))
             """
 
+        rn[0] -= delta_step
+        rn[-1] += delta_step
+
         inlines.append('&TRANSPORT\n')
         inlines.append('ndata( 1, 1, 1) = {} ,\n'.format(len(rn)))
-        inlines.append("tdata(1, 1, 1, 1) = {:e} , tdata(2, 1, 1, 1) = {:e} ,\n".format(rn[0]-delta_step, dn[0]))
-        for i in range(len(rn)-2):
-            inlines.append("tdata(1, {}, 1, 1) = {:e} , tdata(2, {}, 1, 1) = {:e} ,\n".format(i+2,rn[i+1],i+2,dn[i+1]))
-        inlines.append("tdata(1, {}, 1, 1) = {:e} , tdata(2, {}, 1, 1) = {:e} ,\n".format(len(rn), rn[-1]+delta_step, len(rn), dn[-1]))
+        for i in range(len(rn)):
+            inlines.append("tdata(1, {}, 1, 1) = {:e} , tdata(2, {}, 1, 1) = {:e} ,\n".format(i+1, rn[i], i+1, dn[i]))
 
-        if self.data['carbon']:
+        if self.data['impurities']:
 
-            for j in range(3, 10):
+            for j in species_nums[1:]:
                 inlines.append('ndata( 1, 1, {}) = {} ,\n'.format(j, len(rn)))
-                inlines.append("tdata(1, 1, 1, {}) = {:e} , tdata(2, 1, 1, {}) = {:e} ,\n".format(j, rn[0]-delta_step, j, dc[0]))
-                for i in range(len(rn)-2):
-                    inlines.append("tdata(1, {}, 1, {}) = {:e} , tdata(2, {}, 1, {}) = {:e} ,\n".format(i+2, j, rn[i+1], i+2, j, dc[i+1]))
-                inlines.append("tdata(1, {}, 1, {}) = {:e} , tdata(2, {}, 1, {}) = {:e} ,\n".format(len(rn), j, rn[-1]+delta_step, len(rn),j,dc[-1]))
+                for i in range(len(rn)):
+                    inlines.append("tdata(1, {}, 1, {}) = {:e} , tdata(2, {}, 1, {}) = {:e} ,\n".format(i+1, j, rn[i], i+1, j, dc[i]))
 
             # C pinch term to attempt to match CER nC+6
             if np.any(vrc):
-                for j in range(3, 10):
+                for j in species_nums[1:]:
                     inlines.append('ndata( 1, 6, {}) = {} ,\n'.format(j, len(rn)))
-                    inlines.append("tdata(1, 1, 6, {}) = {:e} , tdata(2, 1, 6, {}) = {:e} ,\n".format(j, rn[0]-delta_step, j, vrc[0]))
-                    for i in range(len(rn)-2):
-                        inlines.append("tdata(1, {}, 6, {}) = {:e} , tdata(2, {}, 6, {}) = {:e} ,\n".format(i+2, j, rn[i+1], i+2, j, vrc[i+1]))
-                    inlines.append("tdata(1, {}, 6, {}) = {:e} , tdata(2, {}, 6, {}) = {:e} ,\n".format(len(rn), j, rn[-1]+delta_step, len(rn), j, vrc[-1]))
+                    for i in range(len(rn)):
+                        inlines.append("tdata(1, {}, 6, {}) = {:e} , tdata(2, {}, 6, {}) = {:e} ,\n".format(i+1, j, rn[i], i+1, j, vrc[i]))
 
         # Heat fluxes
 
         for j in species_nums:
             inlines.append('ndata( 1, 3, {}) = {} ,\n'.format(j, len(rn)))
-            inlines.append("tdata(1, 1, 3, {}) = {:e} , tdata(2, 1, 3, {}) = {:e} ,\n".format(j, rn[0]-delta_step, j, ki[0]))
-            for i in range(len(rn)-2):
-                inlines.append("tdata(1, {}, 3, {}) = {:e} , tdata(2, {}, 3, {}) = {:e} ,\n".format(i+2, j, rn[i+1], i+2, j, ki[i+1]))
-            inlines.append("tdata(1, {}, 3, {}) = {:e} , tdata(2, {}, 3, {}) = {:e} ,\n".format(len(rn), j, rn[-1]+delta_step, len(rn), j, ki[-1]))
+            for i in range(len(rn)):
+                inlines.append("tdata(1, {}, 3, {}) = {:e} , tdata(2, {}, 3, {}) = {:e} ,\n".format(i+1, j, rn[i], i+1, j, ki[i]))
 
         inlines.append('ndata( 1, 4, 1) = {} ,\n'.format(len(rn)))
-        inlines.append("tdata(1, 1, 4, 1) = {:e} , tdata(2, 1, 4, 1) = {:e} ,\n".format(rn[0]-delta_step, ke[0]))
-        for i in range(len(rn)-2):
-            inlines.append("tdata(1, {}, 4, 1) = {:e} , tdata(2, {}, 4, 1) = {:e} ,\n".format(i+2, rn[i+1], i+2, ke[i+1]))
-        inlines.append("tdata(1, {}, 4, 1) = {:e} , tdata(2, {}, 4, 1) = {:e} ,\n".format(len(rn), rn[-1]+delta_step, len(rn), ke[-1]))
+        for i in range(len(rn)):
+            inlines.append("tdata(1, {}, 4, 1) = {:e} , tdata(2, {}, 4, 1) = {:e} ,\n".format(i+1, rn[i], i+1, ke[i]))
 
         # if carbon:
         #     # Ti is the same for all species, but n changes per species, so chi_i is set separately
         #     # Assign the same ion thermal diffusion coefficients (transport coefficient 3) from
         #     # species 1 to all other ion species
         #     # This seems to be incorrect, it breaks the reading
-        #     for i in range(3, 10):
+        #     for i in range(3, 9):
         #         inlines.append('addspec( {}, 3, 1) = {} ,\n'.format(i, i))
 
-        inlines.append('no_pflux = .true.\n')  # Will use whatever is in b2.transport.inputfile for PFR
+        inlines.append('no_pflux = .true.\n')  # Will use whatever is in b2.transport.parameters for PFR
         inlines.append('/\n')
         
         # Write out file
