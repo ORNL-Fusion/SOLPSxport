@@ -44,8 +44,9 @@ class SOLPSxport:
         else:
             workdir_short = None
 
-        self.data = {'workdir':workdir, 'workdir_short':workdir_short, 'gfile_loc': gfile_loc, 'pedData':{},
-                     'solpsData':{'profiles':{}}, 'impurities':[imp.lower() for imp in impurity_list], 'shot':shot}
+        self.data = {'workdir':workdir, 'workdir_short':workdir_short, 'gfile_loc': gfile_loc,
+                     'expData':{'fitProfs':{}}, 'solpsData':{'profiles':{}},
+                     'impurities':[imp.lower() for imp in impurity_list], 'shot':shot}
 
         if 'B2PLOT_DEV' in os.environ.keys():
             if (not b2plot_dev_x11) and os.environ['B2PLOT_DEV'] == 'x11 ps':
@@ -177,7 +178,7 @@ class SOLPSxport:
             if verbose: print('Getting profile fit data from MDSplus server on atlas.gat.com')
             
             self.timeid = timeid
-            self.data['pedData']['fitVals'] = sut.getProfDBPedFit(shotnum, timeid, runid)
+            self.data['expData']['fitVals'] = sut.getProfDBPedFit(shotnum, timeid, runid)
             
         else:
             if verbose: print('Reading profile fit data from saved file: ' + profiles_file)
@@ -186,24 +187,24 @@ class SOLPSxport:
                 import pickle
 
                 with open(profiles_file, 'rb') as f:
-                    self.data['pedData']['fitVals'] = pickle.load(f)
+                    self.data['expData']['fitVals'] = pickle.load(f)
 
             else:
                 print("ERROR: Cannot open ProfDB (Tom's Tools) profile file if not formatted as .pkl")
                 # import json
                 #
-                # self.data['pedData']['fitVals'] = json.load(open(profiles_file))
+                # self.data['expData']['fitVals'] = json.load(open(profiles_file))
 
     # ----------------------------------------------------------------------------------------
 
     # def readMastData(self):
     #
-    #     self.data['pedData']['fitPsiProf'] =
-    #     self.data['pedData']['fitProfs']['neprof'] =
-    #     self.data['pedData']['fitProfs']['teprof'] =
+    #     self.data['expData']['fitPsiProf'] =
+    #     self.data['expData']['fitProfs']['neprof'] =
+    #     self.data['expData']['fitProfs']['teprof'] =
     #
     #     try:
-    #         self.data['pedData']['fitProfs']['tiprof'] =
+    #         self.data['expData']['fitProfs']['tiprof'] =
 
     # ----------------------------------------------------------------------------------------
     
@@ -211,17 +212,18 @@ class SOLPSxport:
         self.timeid = pfile_loc[pfile_loc.rfind('.')+1:]
 
         pfile_dict = sut.read_pfile(pfile_loc)
-        self.data['pedData']['pfile'] = pfile_dict
+        self.data['expData']['pfile'] = pfile_dict
 
-        self.data['pedData']['fitPsiProf'] = pfile_dict['psinorm']
-        self.data['pedData']['fitProfs']['neprof'] = pfile_dict['ne(10^20/m^3)']
-        self.data['pedData']['fitProfs']['teprof'] = pfile_dict['te(KeV)']
+        self.data['expData']['fitPsiProf'] = pfile_dict['psinorm']
+        self.data['expData']['fitProfs']['neprof'] = pfile_dict['ne(10^20/m^3)']
+        self.data['expData']['fitProfs']['teprof'] = pfile_dict['te(KeV)']
 
         try:
-            self.data['pedData']['fitProfs']['tiprof'] = pfile_dict['ti(KeV)']
+            self.data['expData']['fitProfs']['tipsi'] = pfile_dict['psinorm']
+            self.data['expData']['fitProfs']['tiprof'] = pfile_dict['ti(KeV)']
         except:
             print('No Ti data in pfile, defaulting to Ti = Te')
-            self.data['pedData']['fitProfs']['tiprof'] = self.data['pedData']['fitProfs']['teprof']
+            self.data['expData']['fitProfs']['tiprof'] = self.data['expData']['fitProfs']['teprof']
         
         if plotit:
             solps_profs = self.data['solpsData']['last10']
@@ -234,21 +236,21 @@ class SOLPSxport:
 
             f, ax = plt.subplots(3, sharex = 'all')
             ax[0].plot(np.array(rne_SOLPS) + 1, ne_SOLPS * 1e-19, '-kx', lw=2, label='ne_SOLPS')
-            ax[0].plot(self.data['pedData']['fitPsiProf'], self.data['pedData']['fitProfs']['neprof'],
+            ax[0].plot(self.data['expData']['fitPsiProf'], self.data['expData']['fitProfs']['neprof'],
                        '--r', lw = 2, label = 'ne')
             ax[0].set_ylabel('n$_e$ (10$^{19}$ m$^{-3}$)')
             ax[0].legend(loc = 'best')
             ax[0].grid('on')
 
             ax[1].plot(np.array(rte_SOLPS) + 1, te_SOLPS, '-kx', lw = 2, label = 'Te_SOLPS')
-            ax[1].plot(self.data['pedData']['fitPsiProf'], self.data['pedData']['fitProfs']['teprof'],
+            ax[1].plot(self.data['expData']['fitPsiProf'], self.data['expData']['fitProfs']['teprof'],
                        '--r', lw = 2, label = 'Te')
             ax[1].set_ylabel('Te (eV)')
             ax[1].legend(loc = 'best')
             ax[1].grid('on')
             
             ax[2].plot(np.array(rti_SOLPS) + 1, ti_SOLPS, '-kx', lw = 2, label = 'Ti_SOLPS')
-            ax[2].plot(self.data['pedData']['fitPsiProf'], self.data['pedData']['fitProfs']['tiprof'],
+            ax[2].plot(self.data['expData']['fitPsiProf'], self.data['expData']['fitProfs']['tiprof'],
                        '--r', lw = 2, label = 'Ti')
             ax[2].set_ylabel('Ti (eV)')
             ax[2].legend(loc = 'best')
@@ -286,34 +288,38 @@ class SOLPSxport:
 
         psiProf = np.linspace(0, psinMax, npsi+1)
         
-        self.data['pedData']['fitPsiProf'] = psiProf
-        self.data['pedData']['fitProfs'] = {}
+        self.data['expData']['fitPsiProf'] = psiProf
+        self.data['expData']['fitProfs'] = {}
     
         # !!! Need to subtract shift from psiProf to move separatrix for power balance !!!
 
         # make ne profile
-        necoef = self.data['pedData']['fitVals']['ne' + nemod + 'psi']['y']
+        necoef = self.data['expData']['fitVals']['ne' + nemod + 'psi']['y']
         neprof = sut.calcTanhMulti(necoef, psiProf)
-        self.data['pedData']['fitProfs']['neprof'] = neprof
+        self.data['expData']['fitProfs']['neprof'] = neprof
             
         # make Te profile
-        tecoef = self.data['pedData']['fitVals']['te' + temod + 'psi']['y']
+        tecoef = self.data['expData']['fitVals']['te' + temod + 'psi']['y']
         teprof = sut.calcTanhMulti(tecoef, psiProf)
-        self.data['pedData']['fitProfs']['teprof'] = teprof
+        self.data['expData']['fitProfs']['teprof'] = teprof
+
+        # make Ti profile (already made, just populate)
+        self.data['expData']['fitProfs']['tipsi'] = self.data['expData']['fitVals']['tisplpsi']['x']
+        self.data['expData']['fitProfs']['tiprof'] = self.data['expData']['fitVals']['tisplpsi']['y']
         
         if ncmod == 'spl':
-            zfzpsi = self.data['pedData']['fitVals']['zfz1splpsi']['x']
-            zfzprof = self.data['pedData']['fitVals']['zfz1splpsi']['y']
+            zfzpsi = self.data['expData']['fitVals']['zfz1splpsi']['x']
+            zfzprof = self.data['expData']['fitVals']['zfz1splpsi']['y']
             zfzfunc = interp1d(zfzpsi, zfzprof, bounds_error = False,
                                fill_value = zfzprof[np.argmax(zfzpsi)])
             # extrapolate to psin>1 using highest value of psin available
         
-            self.data['pedData']['fitProfs']['ncprof'] = zfzfunc(psiProf) * neprof / 6
+            self.data['expData']['fitProfs']['ncprof'] = zfzfunc(psiProf) * neprof / 6
             
         elif ncmod == 'tanh':
-            nccoef = self.data['pedData']['fitVals']['nztanhpsi']['y']
+            nccoef = self.data['expData']['fitVals']['nztanhpsi']['y']
             ncprof = sut.calcTanhMulti(nccoef,psiProf)
-            self.data['pedData']['fitProfs']['ncprof'] = ncprof * neprof / 6
+            self.data['expData']['fitProfs']['ncprof'] = ncprof * neprof / 6
 
         if np.any(neprof < 0) or np.any(teprof < 0):
             print("WARNING: Experimental profile is negative!!!")
@@ -325,7 +331,7 @@ class SOLPSxport:
             f, ax = plt.subplots(2, sharex = 'all')
 
             ax[0].plot(psiProf, neprof, '-b', lw = 2, label = 'n$_e$')
-            ax[0].plot(psiProf, 6*self.data['pedData']['fitProfs']['ncprof'], '--k', lw = 2, label = '6*n$_C$')
+            ax[0].plot(psiProf, 6*self.data['expData']['fitProfs']['ncprof'], '--k', lw = 2, label = '6*n$_C$')
             ax[0].legend(loc='best')
             ax[0].set_ylabel('n (10$^{20}$ m$^{-3}$)')
             ax[0].grid('on')
@@ -361,15 +367,14 @@ class SOLPSxport:
           ti_min       Ti decays exponentially to this value (in eV)
         """
 
-        tiexp = self.data['pedData']['fitVals']['tisplpsi']['y']
-        tiexppsi = self.data['pedData']['fitVals']['tisplpsi']['x']
+        tiexp = self.data['expData']['fitProfs']['tiprof']
+        tiexppsi = self.data['expData']['fitProfs']['tipsi']
 
         r_cell = self.data['solpsData']['crLowerLeft']
         z_cell = self.data['solpsData']['czLowerLeft']
         psin = self.data['solpsData']['psiSOLPS']
 
         dr_flux = np.sqrt(np.diff(r_cell)**2 + np.diff(z_cell)**2)  # change in minor radial position (in m, but in flux r direction)
-
 
         ti_mod = tiexp.copy()
         xrad = tiexppsi.copy()
@@ -421,8 +426,8 @@ class SOLPSxport:
                 np.exp(-(xrad[outer_inds]-rad_loc_for_exp_decay) / decay_length) + ti_min * 1e-3
 
         if plotit:
-            psi_TS = self.data['pedData']['fitPsiProf']
-            teexp = self.data['pedData']['fitProfs']['teprof']
+            psi_TS = self.data['expData']['fitPsiProf']
+            teexp = self.data['expData']['fitProfs']['teprof']
 
             plt.figure()
             plt.plot(psi_TS, teexp, 'g', lw=1, label = 'T$_e$ (TS)')
@@ -437,7 +442,8 @@ class SOLPSxport:
             plt.grid('on')
             plt.show(block=False)
 
-        self.data['pedData']['fitVals']['ti_mod'] = {'x':xrad, 'y':ti_mod}
+        self.data['expData']['fitProfs']['ti_mod_psi'] = xrad
+        self.data['expData']['fitProfs']['ti_mod'] = ti_mod
 
     # ----------------------------------------------------------------------------------------
 
@@ -480,8 +486,8 @@ class SOLPSxport:
             psin[fit] = np.array(psin_read)
             vals[fit] = np.array(vals_read)
         
-        if 'fitVals' not in self.data['pedData']:
-            self.data['pedData']['fitVals'] = {'nedatpsi':{}, 'zfz1datpsi':{}, 'tisplpsi':{}}
+        if 'fitVals' not in self.data['expData']:
+            self.data['expData']['fitVals'] = {'nedatpsi':{}, 'zfz1datpsi':{}, 'tisplpsi':{}}
         
         # Set 'fitProfs' values (linearly interpolate if psi locations from prof files are no good)
         
@@ -489,33 +495,33 @@ class SOLPSxport:
             
             # Deuterium profiles
             
-            self.data['pedData']['fitPsiProf'] = psin[fit]
-            self.data['pedData']['fitProfs'] = {'neprof': vals['n_e'] / 1.0e20,
+            self.data['expData']['fitPsiProf'] = psin[fit]
+            self.data['expData']['fitProfs'] = {'neprof': vals['n_e'] / 1.0e20,
                                                 'teprof': vals['T_e'] / 1.0e3}
             # keep units consistent with Tom's tools
 
-            self.data['pedData']['fitVals']['tisplpsi']['x'] = psin[fit]
+            self.data['expData']['fitProfs']['tipsi'] = psin[fit]
             if 'T_D' in vals.keys():
-                self.data['pedData']['fitVals']['tisplpsi']['y'] = vals['T_D'] / 1.0e3
+                self.data['expData']['fitProfs']['tiprof'] = vals['T_D'] / 1.0e3
             else:   # assume T_D = T_C
-                self.data['pedData']['fitVals']['tisplpsi']['y'] = vals['T_12C6'] / 1.0e3
+                self.data['expData']['fitProfs']['tiprof'] = vals['T_12C6'] / 1.0e3
             
             # Carbon profiles
             
             if 'c' in self.data['impurities']:
-                self.data['pedData']['fitVals']['nedatpsi']['x'] = psin[fit]
-                self.data['pedData']['fitVals']['nedatpsi']['y'] = vals['n_e'] / 1.0e20
+                self.data['expData']['fitVals']['nedatpsi']['x'] = psin[fit]
+                self.data['expData']['fitVals']['nedatpsi']['y'] = vals['n_e'] / 1.0e20
                 
-                self.data['pedData']['fitVals']['zfz1datpsi']['x'] = psin[fit]
-                self.data['pedData']['fitVals']['zfz1datpsi']['y'] = 6*vals['n_12C6']/vals['n_e']
+                self.data['expData']['fitVals']['zfz1datpsi']['x'] = psin[fit]
+                self.data['expData']['fitVals']['zfz1datpsi']['y'] = 6*vals['n_12C6']/vals['n_e']
 
-                self.data['pedData']['fitProfs']['ncprof'] = vals['n_12C6']
+                self.data['expData']['fitProfs']['ncprof'] = vals['n_12C6']
             
         else:
             
             psiProf = np.linspace(0, psiMax, min_npsi + 1)
     
-            self.data['pedData']['fitPsiProf'] = psiProf
+            self.data['expData']['fitPsiProf'] = psiProf
             vals_interp = {}
             for fit in profs:
                 fitfunc = interp1d(psin[fit], vals[fit])
@@ -731,9 +737,9 @@ class SOLPSxport:
             f, ax = plt.subplots(3, sharex = 'all')
 
             ax[0].plot(x_nc, np.array(nc_solps)/1e18, '-kx', lw = 2, label = 'SOLPS')
-            if 'ncprof' in self.data['pedData']['fitProfs'].keys():
-                nc_psi = self.data['pedData']['fitPsiProf']
-                nc_prof = np.array(self.data['pedData']['fitProfs']['ncprof']*100)  # in  m^-3
+            if 'ncprof' in self.data['expData']['fitProfs'].keys():
+                nc_psi = self.data['expData']['fitPsiProf']
+                nc_prof = np.array(self.data['expData']['fitProfs']['ncprof']*100)  # in  m^-3
                 ax[0].plot(nc_psi, nc_prof, '-ro', lw = 2, label = 'Experiment')
                 ax[0].legend(loc='best')
             elif verbose:
@@ -769,7 +775,7 @@ class SOLPSxport:
     # ----------------------------------------------------------------------------------------
     
     def calcXportCoef(self, plotit = True, Dn_min = 0.001, chie_min = 0.01, chii_min = 0.01,
-                      Dn_max = 10, chie_max = 200, chii_max = 200, vrc_mag=0.0, ti_decay_len = 0.015,
+                      Dn_max = 100, chie_max = 400, chii_max = 400, vrc_mag=0.0, ti_decay_len = 0.015,
                       reduce_Ti_fileloc = '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
                       fractional_change = 1, exp_prof_rad_shift = 0, chii_eq_chie = False,
                       use_ratio_bc = True, debug_plots = False, verbose = False, figblock = False):
@@ -788,7 +794,7 @@ class SOLPSxport:
           reduce_Ti_fileloc: Location of a saved array to get the ratio between T_C (measured) and T_i
                         This ratio was calculated from Shaun Haskey's T_D measurements
                         for 171558 @ 3200 ms
-                        Set to None to use Ti from CER C+6
+                        Set to None to use whatever is in the pfile (or Ti from CER C+6 if using Tom's tools)
           vrc_mag:      Magnetude of the carbon velocity pinch
                         (shape and position are still hard coded)
         """
@@ -825,8 +831,8 @@ class SOLPSxport:
         
         # ne and Gamma_e
 
-        psi_data_fit = self.data['pedData']['fitPsiProf'] + exp_prof_rad_shift
-        neexp = 1.0e20 * self.data['pedData']['fitProfs']['neprof']
+        psi_data_fit = self.data['expData']['fitPsiProf'] + exp_prof_rad_shift
+        neexp = 1.0e20 * self.data['expData']['fitProfs']['neprof']
         
         dsa_TSprofile = psi_to_dsa_func(psi_data_fit)
 
@@ -863,7 +869,7 @@ class SOLPSxport:
 
         # Te and ke
         
-        teexp = 1.0e3 * self.data['pedData']['fitProfs']['teprof']
+        teexp = 1.0e3 * self.data['expData']['fitProfs']['teprof']
         
         gteold = np.gradient(teold) / np.gradient(dsa)
         gteexp = np.gradient(teexp) / np.gradient(dsa_TSprofile)
@@ -898,12 +904,12 @@ class SOLPSxport:
                            decay_length = ti_decay_len, rad_loc_for_exp_decay = 1.0,
                            plotit = debug_plots, reduce_ti = (reduce_Ti_fileloc is not None))
 
-            tiexp = 1.0e3*self.data['pedData']['fitVals']['ti_mod']['y']
-            tiexppsi = self.data['pedData']['fitVals']['ti_mod']['x']
+            tiexp = 1.0e3*self.data['expData']['fitProfs']['ti_mod']
+            tiexppsi = self.data['expData']['fitProfs']['ti_mod_psi']
 
         else:
-            tiexp = 1.0e3*self.data['pedData']['fitVals']['tisplpsi']['y']
-            tiexppsi = self.data['pedData']['fitVals']['tisplpsi']['x']
+            tiexp = 1.0e3*self.data['expData']['fitProfs']['tiprof']
+            tiexppsi = self.data['expData']['fitProfs']['tipsi']
         
         dsa_tiprofile = psi_to_dsa_func(tiexppsi)
         
@@ -1004,7 +1010,7 @@ class SOLPSxport:
             plt.legend(loc='best')
 
             plt.figure()
-            plt.plot(tiexppsi, 1.0e3 * self.data['pedData']['fitVals']['tisplpsi']['y'],
+            plt.plot(tiexppsi, 1.0e3 * self.data['expData']['fitProfs']['tiprof'],
                      'k', lw=2, label='Ti measured')
             plt.plot(tiexppsi, tiexp, 'r', label='Ti_new')
             plt.xlabel('$\psi_N$')
@@ -1066,16 +1072,16 @@ class SOLPSxport:
         kinew_flux = self.data['solpsData']['xportCoef']['kinew_flux']
         coef_limits = self.data['solpsData']['xportCoef']['limits']
 
-        psi_data_fit = self.data['pedData']['fitPsiProf']
-        neexp = 1.0e20 * self.data['pedData']['fitProfs']['neprof']
-        teexp = 1.0e3 * self.data['pedData']['fitProfs']['teprof']
+        psi_data_fit = self.data['expData']['fitPsiProf']
+        neexp = 1.0e20 * self.data['expData']['fitProfs']['neprof']
+        teexp = 1.0e3 * self.data['expData']['fitProfs']['teprof']
 
-        if 'ti_mod' in self.data['pedData']['fitVals'].keys():
-            tiexp = 1.0e3*self.data['pedData']['fitVals']['ti_mod']['y']
-            tiexppsi = self.data['pedData']['fitVals']['ti_mod']['x']
+        if 'ti_mod' in self.data['expData']['fitProfs'].keys():
+            tiexp = 1.0e3*self.data['expData']['fitProfs']['ti_mod']
+            tiexppsi = self.data['expData']['fitProfs']['ti_mod_psi']
         else:
-            tiexppsi = self.data['pedData']['fitVals']['tisplpsi']['x']
-            tiexp = 1.0e3*self.data['pedData']['fitVals']['tisplpsi']['y']
+            tiexppsi = self.data['expData']['fitProfs']['tipsi']
+            tiexp = 1.0e3*self.data['expData']['fitProfs']['tiprof']
 
         psi_solps = self.data['solpsData']['psiSOLPS']
         neold = self.data['solpsData']['last10']['ne']
@@ -1192,11 +1198,11 @@ class SOLPSxport:
         
         # Load experimental profiles
 
-        psi_data_fit = self.data['pedData']['fitPsiProf']
-        nefit = 1.0e20 * self.data['pedData']['fitProfs']['neprof']
-        tefit = self.data['pedData']['fitProfs']['teprof']
-        tifit = self.data['pedData']['fitVals']['tisplpsi']['y']
-        tifitpsi = self.data['pedData']['fitVals']['tisplpsi']['x']
+        psi_data_fit = self.data['expData']['fitPsiProf']
+        nefit = 1.0e20 * self.data['expData']['fitProfs']['neprof']
+        tefit = self.data['expData']['fitProfs']['teprof']
+        tifit = self.data['expData']['fitProfs']['tiprof']
+        tifitpsi = self.data['expData']['fitProfs']['tipsi']
 
         rawdat_keys = ['nedatpsi', 'tedatpsi']
         rawdat_scalars = [10, 1.0]  # ne saved as 10^20, we want 10^19
@@ -1215,9 +1221,9 @@ class SOLPSxport:
         f, ax = plt.subplots(nprofs, sharex = 'all')
 
         for i in range(nprofs):
-            ax[i].errorbar(self.data['pedData']['fitVals'][rawdat_keys[i]]['x'],
-                           self.data['pedData']['fitVals'][rawdat_keys[i]]['y'] * rawdat_scalars[i],
-                           self.data['pedData']['fitVals'][rawdat_keys[i]]['yerr'] * rawdat_scalars[i],
+            ax[i].errorbar(self.data['expData']['fitVals'][rawdat_keys[i]]['x'],
+                           self.data['expData']['fitVals'][rawdat_keys[i]]['y'] * rawdat_scalars[i],
+                           self.data['expData']['fitVals'][rawdat_keys[i]]['yerr'] * rawdat_scalars[i],
                            xerr=None, fmt='o', ls='', c='k', mfc='None', mec='k',
                            zorder=1, label='Experimental Data')
 
@@ -1240,9 +1246,9 @@ class SOLPSxport:
             ax[2].plot(tifitpsi, tifit, '--k', lw = 2, zorder=3, label = 'Experimental Fit')
             ax[2].plot(psi_solps, tisolps, '-r', lw = 2, zorder=2, label = 'SOLPS')
 
-            if 'ti_mod' in self.data['pedData']['fitVals'].keys():
-                ax[2].plot(self.data['pedData']['fitVals']['ti_mod']['x'],
-                           self.data['pedData']['fitVals']['ti_mod']['y'],
+            if 'ti_mod' in self.data['expData']['fitProfs'].keys():
+                ax[2].plot(self.data['expData']['fitProfs']['ti_mod_psi'],
+                           self.data['expData']['fitProfs']['ti_mod'],
                            '--b', lw=2, zorder=4, label = 'Modified Ti fit')
             ax[2].set_ylabel('T$_i$ (keV)')
             ax[2].set_ylim([0, max_Ti * headroom])
@@ -1281,11 +1287,11 @@ class SOLPSxport:
 
         # Load experimental profiles
 
-        psi_data_fit = self.data['pedData']['fitPsiProf']
-        nefit = 1.0e20 * self.data['pedData']['fitProfs']['neprof']
-        tefit = self.data['pedData']['fitProfs']['teprof']
-        tifit = self.data['pedData']['fitVals']['tisplpsi']['y']
-        tifitpsi = self.data['pedData']['fitVals']['tisplpsi']['x']
+        psi_data_fit = self.data['expData']['fitPsiProf']
+        nefit = 1.0e20 * self.data['expData']['fitProfs']['neprof']
+        tefit = self.data['expData']['fitProfs']['teprof']
+        tifit = self.data['expData']['fitProfs']['tiprof']
+        tifitpsi = self.data['expData']['fitProfs']['tipsi']
 
         rawdat_keys = ['nedatpsi', 'tedatpsi']
         rawdat_scalars = [10, 1.0]  # ne saved as 10^20, we want 10^19
@@ -1295,16 +1301,16 @@ class SOLPSxport:
         nprofs = len(rawdat_keys)
 
         # Find limits of Te, Ti for plots
-        TS_inds_in_range = np.where((self.data['pedData']['fitVals']['nedatpsi']['x'] > np.min(psi_solps)) &
-                                    (self.data['pedData']['fitVals']['nedatpsi']['x'] < np.max(psi_solps)))[0]
-        Ti_inds_in_range = np.where((self.data['pedData']['fitVals']['tidatpsi']['x'] > np.min(psi_solps)) &
-                                    (self.data['pedData']['fitVals']['tidatpsi']['x'] < np.max(psi_solps)))[0]
-        max_raw_ne = np.max(self.data['pedData']['fitVals']['nedatpsi']['y'][TS_inds_in_range] +
-                            self.data['pedData']['fitVals']['nedatpsi']['yerr'][TS_inds_in_range])
-        max_raw_te = np.max(self.data['pedData']['fitVals']['tedatpsi']['y'][TS_inds_in_range] +
-                            self.data['pedData']['fitVals']['tedatpsi']['yerr'][TS_inds_in_range])
-        max_raw_ti = np.max(self.data['pedData']['fitVals']['tidatpsi']['y'][Ti_inds_in_range] +
-                            self.data['pedData']['fitVals']['tidatpsi']['yerr'][Ti_inds_in_range])
+        TS_inds_in_range = np.where((self.data['expData']['fitVals']['nedatpsi']['x'] > np.min(psi_solps)) &
+                                    (self.data['expData']['fitVals']['nedatpsi']['x'] < np.max(psi_solps)))[0]
+        Ti_inds_in_range = np.where((self.data['expData']['fitVals']['tidatpsi']['x'] > np.min(psi_solps)) &
+                                    (self.data['expData']['fitVals']['tidatpsi']['x'] < np.max(psi_solps)))[0]
+        max_raw_ne = np.max(self.data['expData']['fitVals']['nedatpsi']['y'][TS_inds_in_range] +
+                            self.data['expData']['fitVals']['nedatpsi']['yerr'][TS_inds_in_range])
+        max_raw_te = np.max(self.data['expData']['fitVals']['tedatpsi']['y'][TS_inds_in_range] +
+                            self.data['expData']['fitVals']['tedatpsi']['yerr'][TS_inds_in_range])
+        max_raw_ti = np.max(self.data['expData']['fitVals']['tidatpsi']['y'][Ti_inds_in_range] +
+                            self.data['expData']['fitVals']['tidatpsi']['yerr'][Ti_inds_in_range])
         max_ne = np.max([np.max(nesolps) / 1.0e19, max_raw_ne *10])
         max_Te = np.max([np.max(tesolps), max_raw_te])
         max_Ti = np.max([np.max(tisolps), max_raw_ti])
@@ -1313,9 +1319,9 @@ class SOLPSxport:
         f, ax = plt.subplots(2, nprofs, sharex='all')
 
         for i in range(nprofs):
-            ax[0, i].errorbar(self.data['pedData']['fitVals'][rawdat_keys[i]]['x'],
-                              self.data['pedData']['fitVals'][rawdat_keys[i]]['y'] * rawdat_scalars[i],
-                              self.data['pedData']['fitVals'][rawdat_keys[i]]['yerr'] * rawdat_scalars[i],
+            ax[0, i].errorbar(self.data['expData']['fitVals'][rawdat_keys[i]]['x'],
+                              self.data['expData']['fitVals'][rawdat_keys[i]]['y'] * rawdat_scalars[i],
+                              self.data['expData']['fitVals'][rawdat_keys[i]]['yerr'] * rawdat_scalars[i],
                               xerr=None, fmt='o', ls='', c='k', mfc='None', mec='k',
                               zorder=1, label='Experimental Data')
 
@@ -1342,9 +1348,9 @@ class SOLPSxport:
             ax[0, 2].plot(psi_solps, tisolps, '-r', lw=2, zorder=2, label = 'SOLPS')
             ax[0, 2].plot(tifitpsi, tifit, '--k', lw=2, zorder=3, label='Experimental Fit')
 
-            if 'ti_mod' in self.data['pedData']['fitVals'].keys():
-                ax[0, 2].plot(self.data['pedData']['fitVals']['ti_mod']['x'],
-                              self.data['pedData']['fitVals']['ti_mod']['y'],
+            if 'ti_mod' in self.data['expData']['fitProfs'].keys():
+                ax[0, 2].plot(self.data['expData']['fitProfs']['ti_mod_psi'],
+                              self.data['expData']['fitProfs']['ti_mod'],
                               '--b', lw=2, zorder=4, label='Modified Ti fit')
             ax[0, 2].set_ylabel('T$_i$ (keV)')
             ax[0, 2].set_ylim([0, max_temp * headroom])
