@@ -78,7 +78,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=200,
          chie_use_grad = False, chii_use_grad = False, new_b2xportparams = True,
          chie_min = 0.01, chii_min = 0.01, chie_max = 400, chii_max = 400,
-         reduce_Ti_fileloc='/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
+         reduce_Ti_fileloc = None,
          fractional_change = 1, exp_prof_rad_shift = 0,
          impurity_list = ['c'], use_existing_last10=False, plot_xport_coeffs=True,
          plotall=False, verbose=False, figblock=False):
@@ -112,6 +112,8 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                            that you don't accidentally use .last10 files from a previous iteration
                            with out-of-date SOLPS profiles
       reduce_Ti_fileloc Set to None to use T_D = T_C from MDS+ profile fit
+                        *On GA clusters (Iris and Omega), example file is located here:
+                         '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt'
       fractional_change Set to number smaller than 1 if the incremental change is too large and
                         you want to take a smaller step
       exp_prof_rad_shift: Apply a radial shift to experimental profiles

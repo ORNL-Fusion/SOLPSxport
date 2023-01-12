@@ -348,9 +348,9 @@ class SOLPSxport:
 
     # ----------------------------------------------------------------------------------------
 
-    def modify_ti(self, ratio_fileloc = '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
+    def modify_ti(self, ratio_fileloc = None,
                   sol_points = None, max_psin = 1.1, decay_length = 0.015,
-                  rad_loc_for_exp_decay = 1.0, reduce_ti = True, ti_min = 1, plotit = False):
+                  rad_loc_for_exp_decay = 1.0, reduce_ti = False, ti_min = 1, plotit = False):
         """
         Manually modify the Ti profile to be more realistic
 
@@ -358,13 +358,16 @@ class SOLPSxport:
         the main ion species in the edge.
 
         Inputs:
-          sol_points   Number of extra points to add in the SOL
-          max_psi      sol_points will be evenly distributed between rad_loc_for_exp_decay
-                       and max_psi
-          decay_length Decay length for exponential falloff imposed into SOL (in units of psin)
-          reduce_ti    Use a profile from a single comparison case of T_D vs T_C+6
-                       to reduce the "measured" value of T_D to be more realistic
-          ti_min       Ti decays exponentially to this value (in eV)
+          ratio_fileloc Location of file with a profile of the ratio of TD / TC
+                        example file on GA clusters (Iris and Omega):
+                        '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt'
+          sol_points    Number of extra points to add in the SOL
+          max_psi       sol_points will be evenly distributed between rad_loc_for_exp_decay
+                        and max_psi
+          decay_length  Decay length for exponential falloff imposed into SOL (in units of psin)
+          reduce_ti     Use a profile from a single comparison case of T_D vs T_C+6
+                        to reduce the "measured" value of T_D to be more realistic
+          ti_min        Ti decays exponentially to this value (in eV)
         """
 
         tiexp = self.data['expData']['fitProfs']['tiprof']
@@ -776,7 +779,7 @@ class SOLPSxport:
     
     def calcXportCoef(self, plotit = True, Dn_min = 0.001, chie_min = 0.01, chii_min = 0.01,
                       Dn_max = 100, chie_max = 400, chii_max = 400, vrc_mag=0.0, ti_decay_len = 0.015,
-                      reduce_Ti_fileloc = '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
+                      reduce_Ti_fileloc = None,
                       fractional_change = 1, exp_prof_rad_shift = 0, chii_eq_chie = False,
                       use_ratio_bc = True, debug_plots = False, verbose = False, figblock = False):
         """
@@ -792,9 +795,9 @@ class SOLPSxport:
           exp_prof_rad_shift: Apply a radial shift to experimental profiles
                               (in units of psi_n, positive shifts profiles outward so separatrix is hotter)
           reduce_Ti_fileloc: Location of a saved array to get the ratio between T_C (measured) and T_i
-                        This ratio was calculated from Shaun Haskey's T_D measurements
-                        for 171558 @ 3200 ms
-                        Set to None to use whatever is in the pfile (or Ti from CER C+6 if using Tom's tools)
+                        Example file on GA clusters for DIII-D, calculated from Shaun Haskey's T_D measurements
+                        for 171558 @ 3200 ms:
+                        '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt'
           vrc_mag:      Magnetude of the carbon velocity pinch
                         (shape and position are still hard coded)
         """
@@ -894,7 +897,7 @@ class SOLPSxport:
             kenew_ratio[-1] = keold[-1] * teold[-1] / expTe_dsa_func(dsa[-1])
             kenew_flux[-1] = keold[-1] * teold[-1] / expTe_dsa_func(dsa[-1])
 
-        kenew_ratio[0] = kenew_ratio[1]   # gaurd cells
+        kenew_ratio[0] = kenew_ratio[1]   # guard cells
         kenew_flux[0] = kenew_flux[1]
         
         # Ti and ki
