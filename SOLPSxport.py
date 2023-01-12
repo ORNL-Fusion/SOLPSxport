@@ -397,7 +397,7 @@ class SOLPSxport:
                         T_DC_ratio.append(np.float(elements[1]))
 
                 T_ratio_fit = np.interp(tiexppsi, np.array(psin_ratio),
-                                        np.array(T_DC_ratio), left=1)
+                                        np.array(T_DC_ratio), left=T_DC_ratio[0])
                 # if > given range, chooses endpoint
                 ti_reduced = tiexp * T_ratio_fit
 
@@ -1176,7 +1176,8 @@ class SOLPSxport:
             ax[1, 2].grid('on')
 
         ax[1, -1].legend(loc='best', fontsize=10)
-        ax[0, 0].set_xticks(np.arange(0.84, 1.05, 0.04))
+        if xlims[0] > 0.8:
+            ax[0, 0].set_xticks(np.arange(0.84, 1.05, 0.04))
         ax[0, 0].set_xlim(xlims)
         plt.tight_layout()
 
