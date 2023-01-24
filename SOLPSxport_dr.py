@@ -64,6 +64,8 @@ from scipy import interpolate
 
 import SOLPSutils as sut
 import SOLPSxport as sxp
+import inspect
+import json
 
 plt.rcParams.update({'font.weight': 'bold'})
 plt.rcParams.update({'font.size': 16})
@@ -132,6 +134,15 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
       and rewrite a new b2.transport.inputfile
     """
 
+    # Write dict of last call arguments as json file
+    frame = inspect.currentframe()
+    args, _, _, values = inspect.getargvalues(frame)
+    argvals = {}
+    for arg in args:
+        argvals[arg] = values[arg]        
+    json.dump(argvals,open("SOLPSxport_args.last",'w'))
+    
+    
     if shotnum is None:
         try:
             shotnum = int(gfile_loc[gfile_loc.rfind('g')+1:gfile_loc.rfind('.')])
