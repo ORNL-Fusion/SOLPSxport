@@ -601,7 +601,12 @@ class SOLPSxport:
         """
         wdir = self.data['workdir']
 
-        dsa, crLowerLeft = sut.B2pl('0 crx writ jxa f.y', wdir = wdir)
+        try:
+            dsa, crLowerLeft = sut.B2pl('0 crx writ jxa f.y', wdir = wdir)
+        except Exception as err:
+            print('Exiting from calcPsiVals')
+            raise err
+        
         # dummy, crLowerRight = B2pl('1 crx writ jxa f.y', wdir = wdir)
         # Only 2 unique psi values per cell, grab 0 and 2
         dummy, crUpperLeft = sut.B2pl('2 crx writ jxa f.y', wdir = wdir)  # all x inds are the same

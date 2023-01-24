@@ -150,7 +150,11 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
     print("Initializing SOLPSxport")
     xp = sxp.SOLPSxport(workdir=os.getcwd(), gfile_loc=gfile_loc, impurity_list=impurity_list)
     print("Running calcPsiVals")
-    xp.calcPsiVals(plotit=plotall)
+    try:
+        xp.calcPsiVals(plotit=plotall)
+    except Exception as err:
+        print('Exiting from SOLPSxport_dr\n')
+        sys.exit(err)
     print("Running getSOLPSlast10Profs")
     xp.getSOLPSlast10Profs(plotit=plotall, use_existing_last10=use_existing_last10)
     # xp.getProfsOMFIT(prof_folder = prof_folder, prof_filename_prefix = prof_filename_prefix,
