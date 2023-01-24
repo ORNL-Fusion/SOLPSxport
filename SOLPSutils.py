@@ -120,6 +120,8 @@ def loadMDS(tree, tag, shot, quiet=True):
 
 
 def B2pl(cmds, wdir='.', debug=False):
+    import sys
+    import subprocess
     """
     runs B2plot with the commands used in the call and reads contents of the resulting
     b2plot.write file into two lists
@@ -132,9 +134,14 @@ def B2pl(cmds, wdir='.', debug=False):
         cmdstr = 'echo "' + cmds + '" | b2plot'
         print(cmdstr)
     else:
-        cmdstr = 'echo "' + cmds + '" | b2plot >&/dev/null'
-    system(cmdstr)
-
+#        cmdstr = 'echo "' + cmds + '" | b2plot >&/dev/null'
+        cmdstr = 'echo "' + cmds + '" | b2plot 2>/dev/null'
+        testcmd = subprocess.check_output(cmdstr,shell=True)
+        if testcmd == b'':
+            print('\nERROR: b2plot command was not successful, is the case still running?')
+            print('Command was: ',cmdstr)
+            raise OSError
+            
     fname = path.join(wdir, 'b2pl.exe.dir', 'b2plot.write')
     if not path.exists(fname):
         print('B2Plot writing failed for call:')
