@@ -60,6 +60,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from matplotlib.cm import get_cmap
+from scipy import interpolate
 
 import SOLPSutils as sut
 import SOLPSxport as sxp
@@ -81,7 +82,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          reduce_Ti_fileloc = None,
          fractional_change = 1, exp_prof_rad_shift = 0,
          impurity_list = ['c'], use_existing_last10=False, plot_xport_coeffs=True,
-         plotall=False, verbose=False, figblock=False):
+         plotall=False, verbose=False, figblock=False, plot_older=False):
     """
     Driver for the code, returns an object of class 'SOLPSxport'
 
@@ -125,7 +126,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
       plotall           Produce a bunch more plots from the subroutines used in the process
       verbose           Set to True to print a lot more outputs to terminal
       figblock          Set to True if calling from command line and you want to see figures
-
+      plot_older        Set to True to plot .last10.old profiles, if possible
     Returns:
       Object of class 'SOLPSxport', which can then be used to plot, recall, or modify the saved data
       and rewrite a new b2.transport.inputfile
@@ -183,7 +184,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                      ti_decay_len=ti_decay_len, vrc_mag=vrc_mag, verbose=verbose, Dn_max=Dn_max,
                      fractional_change=fractional_change, exp_prof_rad_shift=exp_prof_rad_shift,
                      chii_min=chii_min, chii_max=chii_max, chie_min=chie_min, chie_max=chie_max,
-                     chii_eq_chie=chii_eq_chie, figblock=figblock)
+                     chii_eq_chie=chii_eq_chie, figblock=figblock, plot_older=plot_older)
 
     print("Writing to: " + new_filename)
     xp.writeXport(new_filename=new_filename, chie_use_grad=chie_use_grad, chii_use_grad=chii_use_grad,
@@ -211,6 +212,27 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
         sut.new_b2xportparams(fileloc='./b2.transport.parameters',
                               dperp=dperp_pfr, chieperp=chieperp_pfr, chiiperp=chiiperp_pfr, verbose=True)
 
+
+        # Add some screen output for separatrix values
+        interp_ne_expt = interpolate.interp1d(xp.data['expData']['fitPsiProf'],xp.data['expData']['fitProfs']['neprof'],kind='linear')
+        interp_te_expt = interpolate.interp1d(xp.data['expData']['fitPsiProf'],xp.data['expData']['fitProfs']['teprof'],kind='linear')
+        interp_ti_expt = interpolate.interp1d(xp.data['expData']['fitPsiProf'],xp.data['expData']['fitProfs']['tiprof'],kind='linear')
+
+        print()
+        print("Using profile shift of: %.3e (in psiN)"%exp_prof_rad_shift)
+        print("ne_sep Expt: %.3e (m^-3)"%(interp_ne_expt(1.0)*1e20))
+        print("Te_sep Expt: %.3f (eV)"%(interp_te_expt(1.0)*1000))
+        print("Ti_sep Expt: %.3f (eV)"%(interp_ti_expt(1.0)*1000))
+
+        interp_ne_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'],xp.data['solpsData']['last10']['ne'])
+        interp_te_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'],xp.data['solpsData']['last10']['te'])
+        interp_ti_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'],xp.data['solpsData']['last10']['ti'])        
+        print()
+        print("ne_sep SOLPS: %.3e (m^-3)"%interp_ne_solps(1.0))
+        print("Te_sep SOLPS: %.3f (eV)"%interp_te_solps(1.0))
+        print("Ti_sep SOLPS: %.3f (eV)"%interp_ti_solps(1.0))
+        
+        
     return xp
 
 # --- Launch main() ----------------------------------------------------------------------
