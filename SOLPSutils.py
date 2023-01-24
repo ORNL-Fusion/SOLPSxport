@@ -120,7 +120,7 @@ def loadMDS(tree, tag, shot, quiet=True):
 
 
 def B2pl(cmds, wdir='.', debug=False):
-    import sys
+    # import sys
     import subprocess
     """
     runs B2plot with the commands used in the call and reads contents of the resulting

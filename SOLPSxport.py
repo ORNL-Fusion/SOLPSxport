@@ -97,15 +97,6 @@ class SOLPSxport:
             found_old = True
         else:
             found_old = False
-
-        # Copy above last10 files to .old so that previous profiles can be plotted on next call
-        import shutil
-        shutil.copyfile('ne3da.last10','ne3da.last10.old')
-        shutil.copyfile('dn3da.last10','dn3da.last10.old')
-        shutil.copyfile('te3da.last10','te3da.last10.old')
-        shutil.copyfile('ke3da.last10','ke3da.last10.old')
-        shutil.copyfile('ti3da.last10','ti3da.last10.old')
-        shutil.copyfile('ki3da.last10','ki3da.last10.old')
         
         os.chdir(olddir)
 

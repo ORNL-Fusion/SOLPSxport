@@ -65,7 +65,10 @@ from scipy import interpolate
 import SOLPSutils as sut
 import SOLPSxport as sxp
 import inspect
-import json
+try:
+    import json
+except:
+    print('json module not available, some functionality not available')
 
 plt.rcParams.update({'font.weight': 'bold'})
 plt.rcParams.update({'font.size': 16})
@@ -81,7 +84,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=200,
          chie_use_grad = False, chii_use_grad = False, new_b2xportparams = True,
          chie_min = 0.01, chii_min = 0.01, chie_max = 400, chii_max = 400,
-         reduce_Ti_fileloc = None,
+         reduce_Ti_fileloc = None, update_old_last10s = False,
          fractional_change = 1, exp_prof_rad_shift = 0,
          impurity_list = ['c'], use_existing_last10=False, plot_xport_coeffs=True,
          plotall=False, verbose=False, figblock=False, plot_older=False):
@@ -117,6 +120,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
       reduce_Ti_fileloc Set to None to use T_D = T_C from MDS+ profile fit
                         *On GA clusters (Iris and Omega), example file is located here:
                          '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt'
+      update_old_last10s  Set to True to copy the last10 files to last10.old for comparison with the next iteration
       fractional_change Set to number smaller than 1 if the incremental change is too large and
                         you want to take a smaller step
       exp_prof_rad_shift: Apply a radial shift to experimental profiles
@@ -133,16 +137,15 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
       Object of class 'SOLPSxport', which can then be used to plot, recall, or modify the saved data
       and rewrite a new b2.transport.inputfile
     """
+    if 'json' in sys.modules:
+        # Write dict of last call arguments as json file
+        frame = inspect.currentframe()
+        args, _, _, values = inspect.getargvalues(frame)
+        argvals = {}
+        for arg in args:
+            argvals[arg] = values[arg]
+        json.dump(argvals,open("SOLPSxport_args.last",'w'))
 
-    # Write dict of last call arguments as json file
-    frame = inspect.currentframe()
-    args, _, _, values = inspect.getargvalues(frame)
-    argvals = {}
-    for arg in args:
-        argvals[arg] = values[arg]        
-    json.dump(argvals,open("SOLPSxport_args.last",'w'))
-    
-    
     if shotnum is None:
         try:
             shotnum = int(gfile_loc[gfile_loc.rfind('g')+1:gfile_loc.rfind('.')])
@@ -246,7 +249,9 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
         print("ne_sep SOLPS: %.3e (m^-3)"%interp_ne_solps(1.0))
         print("Te_sep SOLPS: %.3f (eV)"%interp_te_solps(1.0))
         print("Ti_sep SOLPS: %.3f (eV)"%interp_ti_solps(1.0))
-        
+
+    if update_old_last10s:
+        update_old_last10_files()
         
     return xp
 
@@ -311,7 +316,7 @@ def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
               profiles_fileloc = profiles_fileloc, shotnum = shotnum, ptimeid = ptimeid,
               prunid = prunid, Dn_min = Dn_min, use_existing_last10 = use_existing_last10,
               chie_use_grad=chie_use_grad, chii_use_grad=chii_use_grad,
-              new_b2xportparams=new_b2xportparams,
+              new_b2xportparams=new_b2xportparams, update_old_last10s=True,
               reduce_Ti_fileloc = reduce_Ti_fileloc, impurity_list=impurity_list, plotall = plotall,
               plot_xport_coeffs = plot_xport_coeffs, verbose=False)
     
@@ -361,6 +366,17 @@ def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
 
 # ----------------------------------------------------------------------------------------
 
+def update_old_last10_files():
+    # Copy above last10 files to .old so that previous profiles can be plotted on next call
+    import shutil
+    shutil.copyfile('ne3da.last10', 'ne3da.last10.old')
+    shutil.copyfile('dn3da.last10', 'dn3da.last10.old')
+    shutil.copyfile('te3da.last10', 'te3da.last10.old')
+    shutil.copyfile('ke3da.last10', 'ke3da.last10.old')
+    shutil.copyfile('ti3da.last10', 'ti3da.last10.old')
+    shutil.copyfile('ki3da.last10', 'ki3da.last10.old')
+
+# ----------------------------------------------------------------------------------------
 
 def track_inputfile_iterations(rundir=None, impurity_list=['c'], cmap='viridis', Dn_scalar = 100):
     """
