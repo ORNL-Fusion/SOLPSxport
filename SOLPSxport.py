@@ -35,15 +35,20 @@ class SOLPSxport:
           impurity_list   List of all the impurity species included in the plasma simulation
           b2plot_dev_x11  Set to True if you want a figure to pop up for every b2plot call
         """
-        shot_loc_in_gfile_string = gfile_loc.rfind('g')
-        shot = int(gfile_loc[shot_loc_in_gfile_string+1 : shot_loc_in_gfile_string+7])
 
-        shot_ind_in_workdir = workdir.rfind(str(shot))
-        if shot_ind_in_workdir > 0:
-            workdir_short = workdir[shot_ind_in_workdir:]
-        else:
-            workdir_short = None
+        # Try parsing gfile name
+        workdir_short = None
+        shot = None
+        try:
+            shot_loc_in_gfile_string = gfile_loc.rfind('g')
+            shot = int(gfile_loc[shot_loc_in_gfile_string+1 : shot_loc_in_gfile_string+7])
 
+            shot_ind_in_workdir = workdir.rfind(str(shot))
+            if shot_ind_in_workdir > 0:
+                workdir_short = workdir[shot_ind_in_workdir:]
+        except:
+            pass
+        
         self.data = {'workdir':workdir, 'workdir_short':workdir_short, 'gfile_loc': gfile_loc,
                      'expData':{'fitProfs':{}}, 'solpsData':{'profiles':{}},
                      'impurities':[imp.lower() for imp in impurity_list], 'shot':shot}
