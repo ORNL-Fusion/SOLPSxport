@@ -1423,22 +1423,22 @@ class SOLPSxport:
                            zorder=1, label='Experimental Data')
 
         if 'ne_mod' in self.data['expData']['fitProfs'].keys():
-            ax[0].plot(psi_data_fit, nefit / 1.0e19, '--k', lw=2, zorder=3, label='Experimental Fit')            
-        else:
             ax[0].plot(self.data['expData']['fitProfs']['ne_mod_psi'],
                        self.data['expData']['fitProfs']['ne_mod'],
                        '--k', lw=2, zorder=3, label = 'Experimental Fit')            
+        else:
+            ax[0].plot(psi_data_fit, nefit / 1.0e19, '--k', lw=2, zorder=3, label='Experimental Fit')            
         # ax[0].plot(psi_solps, nesolps / 1.0e19, 'xr', lw=2, mew=2, ms=10, label='SOLPS')
         ax[0].plot(psi_solps, nesolps / 1.0e19, '-r', lw=2, zorder=2, label='SOLPS')
         ax[0].set_ylabel('n$_e$ (10$^{19}$ m$^{-3}$)')
         ax[0].legend(loc='best', fontsize=14)
         ax[0].set_ylim([0, max_ne * headroom])
         if 'te_mod' in self.data['expData']['fitProfs'].keys():
-            ax[1].plot(psi_data_fit, tefit, '--k', lw=2, zorder=3, label='Experimental Fit')
-        else:
             ax[1].plot(self.data['expData']['fitProfs']['te_mod_psi'],
                        self.data['expData']['fitProfs']['te_mod'],
                        '--k', lw=2, zorder=3, label = 'Experimental Fit')
+        else:
+            ax[1].plot(psi_data_fit, tefit, '--k', lw=2, zorder=3, label='Experimental Fit')
         # ax[1].plot(psi_solps, tesolps, 'xr', mew=2, ms=10, label='SOLPS')
         ax[1].plot(psi_solps, tesolps, '-r', lw=2, zorder=2, label='SOLPS')
         ax[1].set_ylabel('T$_e$ (keV)')
