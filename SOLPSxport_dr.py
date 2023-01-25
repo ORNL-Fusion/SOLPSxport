@@ -81,13 +81,15 @@ plt.rcParams.update({'mathtext.default': 'regular'})
 def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          profiles_fileloc=None, shotnum=None, ptimeid=None, prunid=None,
          nefit='tanh', tefit='tanh', ncfit='spl', chii_eq_chie = False, ti_eq_te = False,
-         Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=200,
+         Dn_min=0.001, vrc_mag=0.0, Dn_max=200,
          chie_use_grad = False, chii_use_grad = False, new_b2xportparams = True,
          chie_min = 0.01, chii_min = 0.01, chie_max = 400, chii_max = 400,
          reduce_Ti_fileloc = None, update_old_last10s = False,
          fractional_change = 1, exp_prof_rad_shift = 0,
          impurity_list = ['c'], use_existing_last10=False, plot_xport_coeffs=True,
-         plotall=False, verbose=False, figblock=False, plot_older=False):
+         plotall=False, verbose=False, figblock=False, plot_older=False,
+         ti_decay_len=0.015, te_decay_len = None, ne_decay_len = None,
+         ti_decay_min=1, te_decay_min = 1, ne_decay_min = 1e18):
     """
     Driver for the code, returns an object of class 'SOLPSxport'
 
@@ -109,6 +111,12 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                         (leave zero unless you also change the function within calcXportCoeffs)
       ti_decay_len      Decay length (at the outboard midplane) for imposed exponential falloff
                         for experimental Ti, beginning at separatrix
+      te_decay_len: ""
+      ne_decay_len: ""
+      ti_decay_min: far-SOL Ti to decay to (eV)
+      te_decay_min: far-SOL Te to decay to (eV)
+      ne_decay_min: far-SOL ne to decay to (m^-3)
+
                         (since we know Ti measurement from CER is incorrect in SOL)
       chie/i_use_grad   Use ratio of the gradients for new values of chi_e/i, rather than fluxes
       new_b2xportparams Produces updated b2.transport.parameters so that D, X are set in PFR to match first
@@ -199,10 +207,12 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
 
     print("Running calcXportCoeff")
     xp.calcXportCoef(plotit=plotall or plot_xport_coeffs, reduce_Ti_fileloc=reduce_Ti_fileloc, Dn_min=Dn_min,
-                     ti_decay_len=ti_decay_len, vrc_mag=vrc_mag, verbose=verbose, Dn_max=Dn_max,
+                     vrc_mag=vrc_mag, verbose=verbose, Dn_max=Dn_max,
                      fractional_change=fractional_change, exp_prof_rad_shift=exp_prof_rad_shift,
                      chii_min=chii_min, chii_max=chii_max, chie_min=chie_min, chie_max=chie_max,
-                     chii_eq_chie=chii_eq_chie, figblock=figblock, plot_older=plot_older)
+                     chii_eq_chie=chii_eq_chie, figblock=figblock, plot_older=plot_older,
+                     ti_decay_len=ti_decay_len, te_decay_len=te_decay_len, ne_decay_len=ne_decay_len,
+                     ti_decay_min=ti_decay_min, te_decay_min=te_decay_min, ne_decay_min=ne_decay_min)
 
     print("Writing to: " + new_filename)
     xp.writeXport(new_filename=new_filename, chie_use_grad=chie_use_grad, chii_use_grad=chii_use_grad,
