@@ -695,17 +695,27 @@ class SOLPSxport:
         wdir = self.data['workdir']
 
         try:
-            dsa, crLowerLeft = sut.B2pl('0 crx writ jxa f.y', wdir = wdir)
-        except Exception as err:
-            print('Exiting from calcPsiVals')
-            raise err
+            dsa = sut.read_dsa("dsa")
+            b2mn = sut.scrape_b2mn("b2mn.dat")        
+            geo = sut.read_b2fgmtry("../baserun/b2fgmtry")
+            crLowerLeft = geo['crx'][b2mn['jxa']+1,:,0]
+            crUpperLeft = geo['crx'][b2mn['jxa']+1,:,2]
+            czLowerLeft = geo['cry'][b2mn['jxa']+1,:,0]
+            czUpperLeft = geo['cry'][b2mn['jxa']+1,:,2]               
+        except:
+            try:
+                dsa, crLowerLeft = sut.B2pl('0 crx writ jxa f.y', wdir = wdir)
+            except Exception as err:
+                print('Exiting from calcPsiVals')
+                raise err
+            print(dsa)
         
-        # dummy, crLowerRight = B2pl('1 crx writ jxa f.y', wdir = wdir)
-        # Only 2 unique psi values per cell, grab 0 and 2
-        dummy, crUpperLeft = sut.B2pl('2 crx writ jxa f.y', wdir = wdir)  # all x inds are the same
-        dummy, czLowerLeft = sut.B2pl('0 cry writ jxa f.y', wdir = wdir)
-        dummy, czUpperLeft = sut.B2pl('2 cry writ jxa f.y', wdir = wdir)
-        ncells = len(dummy)
+            # Only 2 unique psi values per cell, grab 0 and 2
+            dummy, crUpperLeft = sut.B2pl('2 crx writ jxa f.y', wdir = wdir)  # all x inds are the same
+            dummy, czLowerLeft = sut.B2pl('0 cry writ jxa f.y', wdir = wdir)
+            dummy, czUpperLeft = sut.B2pl('2 cry writ jxa f.y', wdir = wdir)
+            
+        ncells = len(czLowerLeft)
 
         g = sut.loadg(self.data['gfile_loc'])
         psiN = (g['psirz'] - g['simag']) / (g['sibry'] - g['simag'])

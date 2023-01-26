@@ -147,6 +147,7 @@ def B2pl(cmds, wdir='.', debug=False):
         print('B2Plot writing failed for call:')
         print(cmds)
         print('in directory: ' + wdir + '\n')
+        raise OSError
 
     x, y = [], []
     with open(fname) as f:
@@ -512,31 +513,110 @@ def read_b2_transport_inputfile(infileloc, carbon=True):
         return {'rn': rn, 'dn': dn, 'ki': ki, 'ke': ke}
 
 # ----------------------------------------------------------------------------------------
+def scrape_b2mn(fname):
+    b2mn = {}
+    if not path.exists(fname):
+        print('ERROR: b2mn.dat file not found:',fname)
+        return b2mn
+    
+    with open(fname, 'r') as f:
+        for i, line in enumerate(f):
+            sline = line.strip()
+            if len(line) <= 1:
+                continue
+            if line.strip()[0] == "#" or sline[0] == "*":
+                continue
+            else:
+                count_quotes = 0
+                quote_pos = []
+                for i,c in enumerate(sline):
+                    if c == "'":
+                        count_quotes = count_quotes + 1
+                        quote_pos.append(i)
+                if count_quotes == 2:
+                    # For cases where variable is enclosed in single quotes but value is not: 'b2mwti_jxa'                       
+                    thisvar = sline[quote_pos[0]+1:quote_pos[1]]
+                    this = sline[quote_pos[1]+1:-1]
+                else:
+                    # Typically this is for 4 single quotes
+                    # For cases where both variable and value are enclosed in single quotes: 'b2mwti_jxa'   '36'
+                    #
+                    # This can occur when some comment after the value has quotes in it
+                    # e.g., "'b2sicf_phm0'  '0.0'  Old value '1.0'"
+                    thisvar = sline[quote_pos[0]+1:quote_pos[1]]
+                    this = sline[quote_pos[2]+1:quote_pos[3]]
 
 
-def read_b2fgmtry(fileloc):
-    """
-    Modified from omfit_solps.py
-    """
+                if thisvar == "b2mwti_jxa":
+                    print("found it")
+                    b2mn['jxa'] = int(this)
 
-    with open(fileloc, 'r') as f:
-        tmp = f.read()
-    tmp = tmp.replace('\n', ' ')
-    tmp = tmp.split("*c")
-    tmp = [[f for f in x.split(' ') if f] for x in tmp]
+    return b2mn
+                    
+# ----------------------------------------------------------------------------------------
+def read_dsa(fname):
+    if not path.exists(fname):
+        print('ERROR: b2fgmtry file not found:',fname)
+        return None
 
-    m = {'int': int, 'real': float, 'char': str}
+    dsa = []
+    with open("dsa", 'r') as f:
+        for i,line in enumerate(f):
+            dsa.append(float(line.split()[0]))
+    return dsa
 
-    b2fgmtry = {}
+# ----------------------------------------------------------------------------------------
 
-    for line in tmp[1:]:
-        if len(line) > 4:
-            b2fgmtry[line[3]] = np.array(list(map(m[line[1]], line[4:])))
-        else:
-            b2fgmtry[line[3]] = None
+def read_b2fgmtry(fname):
+    if not path.exists(fname):
+        print('ERROR: b2fgmtry file not found:',fname)
+        return None
 
-    return b2fgmtry
+    data = []
+    with open(fname, 'r') as f:
+        for i, line in enumerate(f):
 
+            # Special handling for first few lines
+            if i == 0:
+                version = line.split()[0][7:-1]
+                geo = {'version':version}
+                continue
+            elif i == 1:
+                continue
+            elif i == 2:
+                # Assume starts with nx,ny after version
+                geo['nx'] = int(line.split()[0])
+                geo['ny'] = int(line.split()[1])
+                numcells = (geo['nx']+2)*(geo['ny']+2)
+                continue
+            
+            if line.split()[0] == '*cf:':
+                vartype = line.split()[1]
+                varsize = int(line.split()[2])
+                varname = line.split()[3]
+                # Some variables have no entries depending on config
+                if varsize == 0:
+                    geo[varname] = None
+                data = []
+            else:
+                # Parse by type
+                if vartype == "char":
+                    geo[varname] = line.strip()
+                else:
+                    splitline = line.split()
+                    for value in splitline:
+                        if vartype == "int":
+                            data.append(int(value))
+                        else:                            
+                            data.append(float(value))
+                        
+                    if len(data) == varsize:
+                        if varsize%numcells == 0:
+                            geo[varname] = np.array(data).reshape([geo['nx']+2,geo['ny']+2,int(varsize/numcells)], order = 'F')
+                        else:
+                            geo[varname] = np.array(data)
+
+    return geo
 
 # ----------------------------------------------------------------------------------------
 

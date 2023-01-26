@@ -145,6 +145,8 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
       Object of class 'SOLPSxport', which can then be used to plot, recall, or modify the saved data
       and rewrite a new b2.transport.inputfile
     """
+    import time
+    tic = time.perf_counter()
     if 'json' in sys.modules:
         # Write dict of last call arguments as json file
         frame = inspect.currentframe()
@@ -173,7 +175,10 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
     xp = sxp.SOLPSxport(workdir=os.getcwd(), gfile_loc=gfile_loc, impurity_list=impurity_list)
     print("Running calcPsiVals")
     try:
+        ticP = time.perf_counter()
         xp.calcPsiVals(plotit=plotall)
+        tocP = time.perf_counter()
+        print("Psi time",tocP-ticP)
     except Exception as err:
         print('Exiting from SOLPSxport_dr\n')
         sys.exit(err)
@@ -263,6 +268,8 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
     if update_old_last10s:
         update_old_last10_files()
         
+    print(time.perf_counter() - tic)
+
     return xp
 
 # --- Launch main() ----------------------------------------------------------------------
