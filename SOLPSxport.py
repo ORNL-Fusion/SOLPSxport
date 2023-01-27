@@ -1342,7 +1342,7 @@ class SOLPSxport:
         ax[1, 1].semilogy(psi_solps, kenew_ratio, '-+c', lw = 1, label = 'Updated (gradients)')
         ax[1, 1].semilogy(psi_solps, keold, '-xr', lw = 2, label = 'SOLPS input')
         if plot_older:
-            ax[1, 1].semilogy(psi_solps, keolder, '-g', lw = 1, label = 'SOLPS input')            
+            ax[1, 1].semilogy(psi_solps, keolder, '-g', lw = 1, label = 'SOLPS old')
         if coef_limits['chie_min'] is not None:
             ax[1, 1].semilogy(xlims, [coef_limits['chie_min'], coef_limits['chie_min']], '--m')
         if coef_limits['chie_max'] is not None:
@@ -1366,7 +1366,7 @@ class SOLPSxport:
             ax[1, 2].semilogy(psi_solps, kinew_ratio, '-+c', lw = 1, label = 'Updated (gradients)')
             ax[1, 2].semilogy(psi_solps, kiold, '-xr', lw = 2, label = 'SOLPS input')
             if plot_older:
-                ax[1, 2].semilogy(psi_solps, kiolder, '-g', lw = 1, label = 'SOLPS input')
+                ax[1, 2].semilogy(psi_solps, kiolder, '-g', lw = 1, label = 'SOLPS old')
             if coef_limits['chii_min'] is not None:
                 ax[1, 2].semilogy(xlims, [coef_limits['chii_min'], coef_limits['chii_min']], '--m')
             if coef_limits['chii_max'] is not None:
