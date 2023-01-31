@@ -746,8 +746,8 @@ class SOLPSxport:
         Calls b2plot to get the carbon profiles
         """
 
-        x_nc, nc_solps = sut.B2pl("na 8 zsel psy writ jxa f.y")
-        x_nd, nd_solps = sut.B2pl("na 1 zsel psy writ jxa f.y")
+        x_nc, nc_solps = sut.B2pl("na 8 zsel writ jxa f.y")
+        x_nd, nd_solps = sut.B2pl("na 1 zsel writ jxa f.y")
         dummy, flux_carbon = sut.B2pl("fnay 8 zsel psy writ jxa f.y")  # x variables are the same
         dummy, vr_carbon = sut.B2pl("vlay 8 zsel writ jxa f.y")
         
