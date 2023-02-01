@@ -55,7 +55,7 @@ class SOLPSxport:
 
         if 'B2PLOT_DEV' in os.environ.keys():
             if (not b2plot_dev_x11) and os.environ['B2PLOT_DEV'] == 'x11 ps':
-                print("Changing environment variable B2PLOT_DEV to 'ps'")
+                print("Changing environment variable B2PLOT_DEV to 'ps' for B2plot calls")
                 os.environ['B2PLOT_DEV'] = 'ps'
         else:
             print('WARNING: Need to source setup.csh for SOLPS-ITER distribution for complete SOLPSxport workflow')
@@ -370,6 +370,31 @@ class SOLPSxport:
             ax[0].set_title('Experimental Pedestal Fits')
             
             plt.show(block = False)
+
+    # ----------------------------------------------------------------------------------------
+
+    def load_ti(self, ti_fileloc = None, verbose = False):
+        """
+        Read Ti directly from a file if you have it (for MICER on DIII-D, but could be from elsewhere)
+        """
+        if verbose:
+            print("Reading Ti data from: " + ti_fileloc)
+
+        with open(ti_fileloc, 'r') as f:
+            lines = f.readlines()
+
+        psin = []
+        ti = []
+
+        for i, l in enumerate(lines):
+            if l.startswith("#"):
+                continue
+            else:
+                psin.append(float(l.strip().split()[0]))
+                ti.append(float(l.strip().split()[1]))
+
+        self.data['expData']['fitProfs']['ti_psi'] = np.array(psin)
+        self.data['expData']['fitProfs']['ti_prof'] = np.array(ti)
 
     # ----------------------------------------------------------------------------------------
 
