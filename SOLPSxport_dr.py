@@ -239,7 +239,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
         # Add some screen output for separatrix values
         interp_ne_expt = interpolate.interp1d(xp.data['expData']['fitPsiProf'],xp.data['expData']['fitProfs']['neprof'],kind='linear')
         interp_te_expt = interpolate.interp1d(xp.data['expData']['fitPsiProf'],xp.data['expData']['fitProfs']['teprof'],kind='linear')
-        interp_ti_expt = interpolate.interp1d(xp.data['expData']['fitPsiProf'],xp.data['expData']['fitProfs']['tiprof'],kind='linear')
+        interp_ti_expt = interpolate.interp1d(xp.data['expData']['fitProfs']['tipsi'],xp.data['expData']['fitProfs']['tiprof'],kind='linear')
 
         print()
         print("Using profile shift of: %.3e (in psiN)"%exp_prof_rad_shift)

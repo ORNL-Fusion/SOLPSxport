@@ -391,10 +391,10 @@ class SOLPSxport:
                 continue
             else:
                 psin.append(float(l.strip().split()[0]))
-                ti.append(float(l.strip().split()[1]))
+                ti.append(float(l.strip().split()[1])/1.0e3)
 
-        self.data['expData']['fitProfs']['ti_psi'] = np.array(psin)
-        self.data['expData']['fitProfs']['ti_prof'] = np.array(ti)
+        self.data['expData']['fitProfs']['tipsi'] = np.array(psin)
+        self.data['expData']['fitProfs']['tiprof'] = np.array(ti)
 
     # ----------------------------------------------------------------------------------------
 
@@ -1095,7 +1095,6 @@ class SOLPSxport:
           prof_choice    Choose from 'd' (particle diffusivity), 'ke' (electron thermal diffusivity),
                          or 'ki' (ion thermal diffusivity)
           psin_start     Starting position to set the flat coefficients (goes outward from here)
-
         """
         if prof_choice.lower() not in ['d', 'ke', 'ki']:
             print('WARNING: invalid choice for diffusion coefficient to set in SOL')
