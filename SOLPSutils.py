@@ -4,7 +4,7 @@ collection of utility routines for use with other SOLPS modules
 Several routines that used to be here have simpler/more robust duplicates in common libraries
 I've left those routines below but commented them out and given a good replacement option
 
-A. Sontag, R.S. Wilcox 2019
+A. Sontag, R.S. Wilcox, J.D. Lore 2019-2023
 """
 
 from os import path, system, rename
@@ -548,7 +548,6 @@ def scrape_b2mn(fname):
 
 
                 if thisvar == "b2mwti_jxa":
-                    print("found it")
                     b2mn['jxa'] = int(this)
 
     return b2mn
@@ -564,7 +563,6 @@ def read_dsa(fname):
         for i,line in enumerate(f):
             dsa.append(float(line.split()[0]))
     return dsa
-
 # ----------------------------------------------------------------------------------------
 
 def read_b2fgmtry(fname):
@@ -619,6 +617,79 @@ def read_b2fgmtry(fname):
     return geo
 
 # ----------------------------------------------------------------------------------------
+
+def read_b2fstate(fname):
+    if not path.exists(fname):
+        print('ERROR: b2fstate file not found:',fname)
+        return None
+
+    data = []
+    with open(fname, 'r') as f:
+        for i, line in enumerate(f):
+
+            # Special handling for first few lines
+            if i == 0:
+                version = line.split()[0][7:-1]
+                state = {'version':version}
+                continue
+            elif i == 1:
+                continue
+            elif i == 2:
+                # Assume starts with nx,ny,ns after version
+                state['nx'] = int(line.split()[0])
+                state['ny'] = int(line.split()[1])
+                state['ns'] = int(line.split()[2])                
+                numcells = (state['nx']+2)*(state['ny']+2)
+                continue
+            
+            if line.split()[0] == '*cf:':
+                vartype = line.split()[1]
+                varsize = int(line.split()[2])
+                varname = line.split()[3]
+                #print(varname,varsize,state['nx'],state['ny'],state['ns'])
+                # Some variables have no entries depending on config
+                if varsize == 0:
+                    state[varname] = None
+                data = []
+            else:
+                # Parse by type
+                if vartype == "char":
+                    state[varname] = line.strip()
+                else:
+                    splitline = line.split()
+                    for value in splitline:
+                        if vartype == "int":
+                            data.append(int(value))
+                        else:                            
+                            data.append(float(value))
+                        
+                    if len(data) == varsize:
+                        if varsize == numcells:
+                            # This is a scalar quantity
+                            state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2], order = 'F')
+                        elif varsize == 2*numcells:
+                            # This is a flux quantity
+                            state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,2], order = 'F')
+                        elif varsize == numcells*state['ns']:
+                            # This is a scalar quantity by species
+                            state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,state['ns']], order = 'F')
+                        elif varsize == 2*numcells*state['ns']:
+                            # This is a flux quantity by species
+                            state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,2,state['ns']], order = 'F')
+                        elif varsize == 4*numcells:
+                            # This is a flux quantity in 3.1 format
+                            state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,2,2], order = 'F')
+                        elif varsize == 4*numcells*state['ns']:
+                            # This is a flux quantity by species in 3.1 format
+                            state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,2,2,state['ns']], order = 'F')                        
+                        else:
+                            if varsize%numcells == 0:
+                                print("Warning, must have missed some dimension checks for variable:",varname)                                
+
+    return state
+
+# ----------------------------------------------------------------------------------------
+
 
 def new_b2xportparams(fileloc, dperp=None, chieperp=None, chiiperp=None, verbose=False, ndigits=8):
     """
@@ -695,113 +766,7 @@ def new_b2xportparams(fileloc, dperp=None, chieperp=None, chiiperp=None, verbose
         for i in range(len(lines)):
             f.write(lines[i])
 
-
 # ----------------------------------------------------------------------------------------
-
-def read_b2fstat(fileloc):
-    """
-    Modified from omfit_solps.py
-    """
-    with open(fileloc, 'r') as f:
-        lines = f.readlines()
-
-    b2fstat = {'__notes__': [], '__unhandled__': []}
-
-    # Initialize
-    data = np.array([])
-
-    translations = {'real': 'float', 'char': 'str'}
-
-    b2fstat['nx'], b2fstat['ny'], b2fstat['ns'] = 0, 0, 0
-
-    def close_field():
-        # Handle previous field
-        if n > 0:
-            print('Finishing previous field;    dat_type = "{}", n = {}, ' +
-                  'names = {}, len(names) = {}'.format(dat_type, n, names, len(names)))
-            if len(names) == 1:
-                # 2D arrays: X Y
-                if n == (b2fstat['nx'] + 2) * (b2fstat['ny'] + 2):
-                    # This is an X by Y spatial array with guard cells
-                    b2fstat[names[0]] = data.reshape(-1, b2fstat['nx'] + 2)
-                elif n == b2fstat['nx'] * b2fstat['ny']:
-                    # This is an X by Y spatial array with no guard cells
-                    b2fstat[names[0]] = data.reshape(-1, b2fstat['nx'])
-
-                # 3D arrays - X Y S
-                elif n == (b2fstat['nx'] + 2) * (b2fstat['ny'] + 2) * b2fstat['ns']:
-                    # This is an X by Y by species array with guard cells
-                    b2fstat[names[0]] = data.reshape(b2fstat['ns'], -1, b2fstat['nx'] + 2)
-                elif n == (b2fstat['nx']) * (b2fstat['ny']) * b2fstat['ns']:
-                    # This is an X by Y by species array with no guard cells
-                    b2fstat[names[0]] = data.reshape(b2fstat['ns'], -1, b2fstat['nx'])
-
-                # 3D arrays - X Y v
-                # Page 183 of the 2015 Feb 27 SOLPS manual mentions "fhe - (-1:nx, -1:ny, 0:1) real*8 array
-                # I think there's a row major vs. column major difference going on or something, but anyway,
-                # python gets the array out correctly if nx corresponds to the last axis when 2D, which is
-                # the opposite of the documentation, so the v axis with length 2 should be the first axis in
-                # python.
-                elif n == (b2fstat['nx'] + 2) * (b2fstat['ny'] + 2) * 2:
-                    # This is an X by Y by 2 (probably poloidal & radial components) array w/ guard cells.
-                    b2fstat[names[0]] = data.reshape(2, -1, b2fstat['nx'] + 2)
-                elif n == b2fstat['nx'] * b2fstat['ny'] * 2:
-                    # This is an X by Y by 2 (probably poloidal & radial components) array w/o guard cells.
-                    b2fstat[names[0]] = data.reshape(2, -1, b2fstat['nx'])
-
-                # 4D arrays - X Y S v
-                # Manual calls fna X Y v S, so it should be S v Y X here.
-                elif n == (b2fstat['nx'] + 2) * (b2fstat['ny'] + 2) * b2fstat['ns'] * 2:
-                    # This is an X by Y by species by 2 array w/ guard cells.
-                    b2fstat[names[0]] = data.reshape(b2fstat['ns'], 2, -1, b2fstat['nx'] + 2)
-                elif n == (b2fstat['nx']) * (b2fstat['ny']) * b2fstat['ns'] * 2:
-                    # This is an X by Y by species by 2 array w/o guard cells.
-                    b2fstat[names[0]] = data.reshape(b2fstat['ns'], 2, -1, b2fstat['nx'])
-
-                else:
-                    # Can't identify higher dims of this or it is just 1D, so don't mess with it
-                    b2fstat[names[0]] = data
-            elif len(names) == n:
-                for ii, name in enumerate(names):
-                    b2fstat[name] = data[ii]
-            else:
-                print('WARNING! Problem parsing b2fstate or b2fstati in omfit_solps class: ' +
-                      'Cannot handle more than one name unless length of names matches length' +
-                      ' of data!')
-                b2fstat['__unhandled__'] += [{'names': names, 'data': data}]
-
-    cflines = []
-    for i, line in enumerate(lines):
-        if line.startswith('*cf:'):
-            cflines += [i]
-
-    cflines += [len(lines)]
-
-    if cflines[0] > 0:
-        print('    Found header line(s), adding to notes: {}'.format(lines[: cflines[0]]))
-        b2fstat['__notes__'] += [line.split('\n')[0] for line in lines[: cflines[0]]]
-
-    for i in range(len(cflines) - 1):
-        print('Setting up field: {}'.format(lines[cflines[i]].split('\n')[0]))
-        dat_type_string = lines[cflines[i]].split()[1].strip()
-        dat_type_string = translations.get(dat_type_string, dat_type_string)
-        dat_type = eval(dat_type_string)
-        n = int(lines[cflines[i]].split()[2])
-        names = lines[cflines[i]].split()[3].split(',')
-        print('   dat_type = "{}" / "{}", n = {}, names = {}, len(names) = {}'.format(
-              dat_type_string, dat_type, n, names, len(names)),)
-
-        raw = lines[cflines[i] + 1: cflines[i + 1]]
-        if dat_type_string != 'char':
-            data = np.array(' '.join(raw).split()).astype(dat_type)
-        else:
-            data = lines[cflines[i] + 1].split('\n')[0][1:]
-        close_field()
-
-    return b2fstat
-
-# ----------------------------------------------------------------------------------------
-
 
 def read_input_dat(fileloc, verbose = False):
     """
@@ -856,43 +821,3 @@ def read_input_dat(fileloc, verbose = False):
 
     return {'nsurfs':nsurfs, 'rlocs1':rlocs1, 'zlocs1':zlocs1, 'rlocs2':rlocs2, 'zlocs2':zlocs2,
             'surfmod':surfmod, 'recyct':recyct}
-
-# ----------------------------------------------------------------------------------------
-# def shift(arr,ns):
-#     """
-#     Use np.roll for this instead ('append' doesn't work for numpy arrays)
-#     2nd argument needs to be opposite for np.roll (2 --> -2)
-#     """
-#     print("Use np.roll instead of this custom 'shift' routine")
-#     new_arr=arr[ns:]
-#     for e in arr[:ns]:
-#         new_arr.append(e)
-#
-#     return new_arr
-#
-# ----------------------------------------------------------------------------------------
-# def deriv(x,y):
-#     """
-#     This function duplicates the deriv finite differencing function from IDL
-#
-#     Use np.gradient(y) / np.gradient(x) instead of this, it handles end indeces properly
-#     """
-#
-#     xx = np.array(x)
-#     y = np.array(y)
-#
-#     x12 = xx - np.roll(xx,1)
-#     x01 = np.roll(xx,-1) - xx
-#     x02 = np.roll(xx,-1) - np.roll(xx,1)
-#
-#     d = np.roll(y,-1)*(x12/(x01*x02))+y*(1/x12-1/x01)-np.roll(y,1)*(x01/(x02*x12))
-#
-#     # x12 = xx - shift(xx,-1)
-#     # x01 = shift(xx,1) - xx
-#     # x02 = shift(xx,1) - shift(xx,-1)
-#
-#     # d = shift(y,1)*(x12/(x01*x02))+y*(1/x12-1/x01)-shift(y,-1)*(x01/(x02*x12))
-#     d[0]=y[0]*(x01[1]+x02[1])/(x01[1]*x02[1])-y[1]*x02[1]/(x01[1]*x12[1])+y[2]*x01[1]/(x02[1]*x12[1])
-#     d[-1]=y[-3]*x12[-2]/(x01[-2]*x02[-2])+y[-2]*x02[-2]/(x01[-2]*x12[-2])-y[-1]*(x02[-2]+x12[-2])/(x02[-2]*x12[-2])
-#
-#     return d

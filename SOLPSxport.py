@@ -797,10 +797,19 @@ class SOLPSxport:
         x_fTot, fluxD = sut.B2pl("fnay 1 zsel sy m/ writ jxa f.y")
         dummy, fluxConv = sut.B2pl("na za m* vlay m* 0 0 sumz writ jxa f.y")
         dummy, na = sut.B2pl("na 0 0 sumz writ jxa f.y")
-        # dummy, hy1 = sut.B2pl("hy1 writ jxa f.y")  # not used anymore
         dummy, qe = sut.B2pl("fhey sy m/ writ jxa f.y")
         dummy, qi = sut.B2pl("fhiy sy m/ writ jxa f.y")
 
+#        dummy, testq = sut.B2pl("fhey writ jxa f.y")
+#        print(testq)
+#                    dsa = sut.read_dsa("dsa")
+#        b2mn = sut.scrape_b2mn("b2mn.dat")
+#        geo = sut.read_b2fgmtry("../baserun/b2fgmtry")        
+#        state = sut.read_b2fstate("b2fstate")
+#        sy = geo['gs'][b2mn['jxa']+1,:,1]
+#        print(state['fhe'][b2mn['jxa']+1,:,1]/sy)
+#        print(state['fhe'][b2mn['jxa']+1,:,1])
+        
         for c in [fluxTot, fluxConv]:
             if not c:
                 print("WARNING: Variable not populated by b2plot in getSOLPSfluxProfs")
@@ -812,7 +821,6 @@ class SOLPSxport:
         self.data['solpsData']['profiles']['fluxD'] = np.array(fluxD)
         self.data['solpsData']['profiles']['fluxConv'] = np.array(fluxConv)
         self.data['solpsData']['profiles']['na'] = np.array(na)
-        # self.data['solpsData']['profiles']['hy1'] = np.array(hy1)  # not used anymore
         self.data['solpsData']['profiles']['qe'] = np.array(qe)
         self.data['solpsData']['profiles']['qi'] = np.array(qi)
 
@@ -1023,7 +1031,7 @@ class SOLPSxport:
             dnew_flux[-1] = dold[-1] * neold[-1] / expden_dsa_func(dsa[-1])
         
 
-        dnew_ratio[0] = dnew_ratio[1]
+        dnew_ratio[0] = dnew_ratio[1] # guard cells
         dnew_flux[0] = dnew_flux[1]
         
         # Te and ke
