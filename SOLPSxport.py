@@ -55,7 +55,7 @@ class SOLPSxport:
 
         if 'B2PLOT_DEV' in os.environ.keys():
             if (not b2plot_dev_x11) and os.environ['B2PLOT_DEV'] == 'x11 ps':
-                print("Changing environment variable B2PLOT_DEV to 'ps'")
+                print("Changing environment variable B2PLOT_DEV to 'ps' for B2plot calls")
                 os.environ['B2PLOT_DEV'] = 'ps'
         else:
             print('WARNING: Need to source setup.csh for SOLPS-ITER distribution for complete SOLPSxport workflow')
@@ -370,6 +370,31 @@ class SOLPSxport:
             ax[0].set_title('Experimental Pedestal Fits')
             
             plt.show(block = False)
+
+    # ----------------------------------------------------------------------------------------
+
+    def load_ti(self, ti_fileloc = None, verbose = False):
+        """
+        Read Ti directly from a file if you have it (for MICER on DIII-D, but could be from elsewhere)
+        """
+        if verbose:
+            print("Reading Ti data from: " + ti_fileloc)
+
+        with open(ti_fileloc, 'r') as f:
+            lines = f.readlines()
+
+        psin = []
+        ti = []
+
+        for i, l in enumerate(lines):
+            if l.startswith("#"):
+                continue
+            else:
+                psin.append(float(l.strip().split()[0]))
+                ti.append(float(l.strip().split()[1])/1.0e3)
+
+        self.data['expData']['fitProfs']['tipsi'] = np.array(psin)
+        self.data['expData']['fitProfs']['tiprof'] = np.array(ti)
 
     # ----------------------------------------------------------------------------------------
 
@@ -861,8 +886,8 @@ class SOLPSxport:
         Calls b2plot to get the carbon profiles
         """
 
-        x_nc, nc_solps = sut.B2pl("na 8 zsel psy writ jxa f.y")
-        x_nd, nd_solps = sut.B2pl("na 1 zsel psy writ jxa f.y")
+        x_nc, nc_solps = sut.B2pl("na 8 zsel writ jxa f.y")
+        x_nd, nd_solps = sut.B2pl("na 1 zsel writ jxa f.y")
         dummy, flux_carbon = sut.B2pl("fnay 8 zsel psy writ jxa f.y")  # x variables are the same
         dummy, vr_carbon = sut.B2pl("vlay 8 zsel writ jxa f.y")
         
@@ -1212,7 +1237,6 @@ class SOLPSxport:
           prof_choice    Choose from 'd' (particle diffusivity), 'ke' (electron thermal diffusivity),
                          or 'ki' (ion thermal diffusivity)
           psin_start     Starting position to set the flat coefficients (goes outward from here)
-
         """
         if prof_choice.lower() not in ['d', 'ke', 'ki']:
             print('WARNING: invalid choice for diffusion coefficient to set in SOL')

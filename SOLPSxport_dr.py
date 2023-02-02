@@ -80,12 +80,12 @@ plt.rcParams.update({'mathtext.default': 'regular'})
 
 def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          profiles_fileloc=None, shotnum=None, ptimeid=None, prunid=None,
-         nefit='tanh', tefit='tanh', ncfit='spl', chii_eq_chie = False, ti_eq_te = False,
-         Dn_min=0.001, vrc_mag=0.0, Dn_max=200,
+         nefit='tanh', tefit='tanh', ncfit='spl', chii_eq_chie = False,  # ti_eq_te = False,
+         Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=200,
          chie_use_grad = False, chii_use_grad = False, new_b2xportparams = True,
          chie_min = 0.01, chii_min = 0.01, chie_max = 400, chii_max = 400,
          reduce_Ti_fileloc = None, update_old_last10s = False,
-         fractional_change = 1, exp_prof_rad_shift = 0,
+         fractional_change = 1, exp_prof_rad_shift = 0, ti_fileloc = None,
          impurity_list = ['c'], use_existing_last10=False, plot_xport_coeffs=True,
          plotall=False, verbose=False, figblock=False, plot_older=False,
          ti_decay_len=0.015, te_decay_len = None, ne_decay_len = None,
@@ -133,6 +133,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                         you want to take a smaller step
       exp_prof_rad_shift: Apply a radial shift to experimental profiles
                         (in units of psi_n, positive shifts profiles outward so separatrix is hotter)
+      ti_fileloc        Separate file with Ti data (overwrites previous fits)
       impurity_list     List of all the impurities included in the plasma simulation
                         (not tested yet for anything other than 'c')
       plot_xport_coeffs Plot the SOLPS and experimental profiles, along with the previous
@@ -203,6 +204,10 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
     else:
         print("Loading profiles from pfile")
         xp.load_pfile(profiles_fileloc, plotit=plotall)
+
+    if ti_fileloc:
+        xp.load_ti(ti_fileloc=ti_fileloc, verbose=True)
+
     print("Getting flux profiles")
     xp.getSOLPSfluxProfs(plotit=plotall)
 
@@ -249,7 +254,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
         # Add some screen output for separatrix values
         interp_ne_expt = interpolate.interp1d(xp.data['expData']['fitPsiProf'],xp.data['expData']['fitProfs']['neprof'],kind='linear')
         interp_te_expt = interpolate.interp1d(xp.data['expData']['fitPsiProf'],xp.data['expData']['fitProfs']['teprof'],kind='linear')
-        interp_ti_expt = interpolate.interp1d(xp.data['expData']['fitPsiProf'],xp.data['expData']['fitProfs']['tiprof'],kind='linear')
+        interp_ti_expt = interpolate.interp1d(xp.data['expData']['fitProfs']['tipsi'],xp.data['expData']['fitProfs']['tiprof'],kind='linear')
 
         print()
         print("Using profile shift of: %.3e (in psiN)"%exp_prof_rad_shift)
@@ -288,7 +293,8 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--shotnum', help='shot number; default = None', type=str, default=None)
     parser.add_argument('-t', '--timeid', help='time of profile run; default = None', type=str, default=None)
     parser.add_argument('-r', '--runid', help='profile run id; default = None', type=str, default=None)
-    parser.add_argument('-i', '--tifileloc', help='File location for Ti/TD ratio; default = None', type=str, default=None)
+    parser.add_argument('-i', '--tiratiofile', help='File location for Ti/TD ratio; default = None', type=str, default=None)
+    parser.add_argument('-d', '--tdfileloc', help='File location for TD; default = None', type=str, default=None)
     parser.add_argument('-f', '--fractional_change', help='Fractional change to transport coefficients; default = 1',
                         type=float, default=1)
     if py3_9:
@@ -308,8 +314,9 @@ if __name__ == '__main__':
 
     _ = main(gfile_loc=args.gfileloc, profiles_fileloc=args.profilesloc,
              shotnum=args.shotnum, ptimeid=args.timeid, prunid=args.runid,
+             ti_fileloc=args.tdfileloc,
              chii_eq_chie=args.chii_eq_chie, chie_use_grad=args.chie_use_grad, chii_use_grad=args.chii_use_grad,
-             reduce_Ti_fileloc=args.tifileloc, fractional_change=args.fractional_change, figblock=True)
+             reduce_Ti_fileloc=args.tiratiofile, fractional_change=args.fractional_change, figblock=True)
 
 # ----------------------------------------------------------------------------------------
 
