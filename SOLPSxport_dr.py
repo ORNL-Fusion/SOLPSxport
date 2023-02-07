@@ -146,8 +146,6 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
       Object of class 'SOLPSxport', which can then be used to plot, recall, or modify the saved data
       and rewrite a new b2.transport.inputfile
     """
-    import time
-    tic = time.perf_counter()
     if 'json' in sys.modules:
         # Write dict of last call arguments as json file
         frame = inspect.currentframe()
@@ -174,12 +172,24 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
 
     print("Initializing SOLPSxport")
     xp = sxp.SOLPSxport(workdir=os.getcwd(), gfile_loc=gfile_loc, impurity_list=impurity_list)
+
+    print("Reading SOLPS output")
+    try:
+        dsa = sut.read_dsa("dsa")
+        b2mn = sut.scrape_b2mn("b2mn.dat")        
+        geo = sut.read_b2fgmtry("../baserun/b2fgmtry")
+        state = sut.read_b2fstate("b2fstate")
+        xport = sut.read_transport_files(".", dsa=dsa, geo=geo, state=state)
+    except:
+        dsa = None
+        b2mn = None
+        geo = None
+        state = None
+        xport = None
+        
     print("Running calcPsiVals")
     try:
-        ticP = time.perf_counter()
-        xp.calcPsiVals(plotit=plotall)
-        tocP = time.perf_counter()
-        print("Psi time",tocP-ticP)
+        xp.calcPsiVals(plotit=plotall,geo=geo,b2mn=b2mn,dsa=dsa)
     except Exception as err:
         print('Exiting from SOLPSxport_dr\n')
         sys.exit(err)
@@ -209,11 +219,11 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
         xp.load_ti(ti_fileloc=ti_fileloc, verbose=True)
 
     print("Getting flux profiles")
-    xp.getSOLPSfluxProfs(plotit=plotall)
+    xp.getSOLPSfluxProfs(plotit=plotall,dsa=dsa,b2mn=b2mn,geo=geo,state=state,xport=xport)
 
     if impurity_list:
         print("Running getSOLPSCarbonProfs")
-        xp.getSOLPSCarbonProfs(plotit=plotall)
+        xp.getSOLPSCarbonProfs(plotit=plotall,dsa=dsa,b2mn=b2mn,geo=geo,state=state,xport=xport)
 
     print("Running calcXportCoeff")
     xp.calcXportCoef(plotit=plotall or plot_xport_coeffs, reduce_Ti_fileloc=reduce_Ti_fileloc, Dn_min=Dn_min,
@@ -271,9 +281,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
         print("Ti_sep SOLPS: %.3f (eV)"%interp_ti_solps(1.0))
 
     if update_old_last10s:
-        update_old_last10_files()
-        
-    print(time.perf_counter() - tic)
+        update_old_last10_files()        
 
     return xp
 

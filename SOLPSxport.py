@@ -691,7 +691,7 @@ class SOLPSxport:
 
     # ----------------------------------------------------------------------------------------
 
-    def calcPsiVals(self, plotit = False):
+    def calcPsiVals(self, plotit = False, dsa = None, b2mn = None, geo = None):
         """
         Call b2plot to get the locations of each grid cell in psin space
 
@@ -720,9 +720,13 @@ class SOLPSxport:
         wdir = self.data['workdir']
 
         try:
-            dsa = sut.read_dsa("dsa")
-            b2mn = sut.scrape_b2mn("b2mn.dat")        
-            geo = sut.read_b2fgmtry("../baserun/b2fgmtry")
+            if dsa is None:
+                dsa = read_dsa('dsa')
+            if geo is None:
+                geo = read_b2fgmtry('../baserun/b2fgmtry')
+            if b2mn is None:
+                b2mn = sut.scrape_b2mn("b2mn.dat")                
+
             crLowerLeft = geo['crx'][b2mn['jxa']+1,:,0]
             crUpperLeft = geo['crx'][b2mn['jxa']+1,:,2]
             czLowerLeft = geo['cry'][b2mn['jxa']+1,:,0]
@@ -733,7 +737,6 @@ class SOLPSxport:
             except Exception as err:
                 print('Exiting from calcPsiVals')
                 raise err
-            print(dsa)
         
             # Only 2 unique psi values per cell, grab 0 and 2
             dummy, crUpperLeft = sut.B2pl('2 crx writ jxa f.y', wdir = wdir)  # all x inds are the same
@@ -813,18 +816,23 @@ class SOLPSxport:
     
     # ----------------------------------------------------------------------------------------
     
-    def getSOLPSfluxProfs(self, plotit = False):
+    def getSOLPSfluxProfs(self, plotit = False, b2mn = None, geo = None, state = None, dsa = None, xport = None):
         """
+        Tries to get flux profiles from solps output, falls back to 
         Calls b2plot to get the particle flux profiles
         """
 
         try:
-            print('Getting data from solps output')
-            b2mn = sut.scrape_b2mn("b2mn.dat")
-            geo = sut.read_b2fgmtry("../baserun/b2fgmtry")        
-            state = sut.read_b2fstate("b2fstate")
-            dsa = sut.read_dsa("dsa")
-            xport = sut.read_transport_files(".", dsa=dsa, geo=geo, state=state)
+            if dsa is None:
+                dsa = read_dsa('dsa')
+            if geo is None:
+                geo = read_b2fgmtry('../baserun/b2fgmtry')
+            if b2mn is None:
+                b2mn = sut.scrape_b2mn("b2mn.dat")                
+            if state is None:
+                state = sut.read_b2fstate("b2fstate")
+            if xport is None:
+                xport = sut.read_transport_files(".", dsa=dsa, geo=geo, state=state)
             
             sy = sut.avg_like_b2plot(geo['gs'][b2mn['jxa']+1,:,1])        
             z = np.ones((geo['nx']+2,geo['ny']+2,state['ns']))
@@ -894,23 +902,26 @@ class SOLPSxport:
                 
     # ----------------------------------------------------------------------------------------
     
-    def getSOLPSCarbonProfs(self, plotit = False, verbose=True):
+    def getSOLPSCarbonProfs(self, plotit = False, verbose=True, dsa = None, b2mn = None, geo = None, state = None, xport = None):
         """
         Calls b2plot to get the carbon profiles
         """
         try:
-            dsa = sut.read_dsa("dsa")            
-            b2mn = sut.scrape_b2mn("b2mn.dat")
-            geo = sut.read_b2fgmtry("../baserun/b2fgmtry")        
-            state = sut.read_b2fstate("b2fstate")
-            sy = sut.avg_like_b2plot(geo['gs'][b2mn['jxa']+1,:,1])
-            
+            if dsa is None:
+                dsa = read_dsa('dsa')
+            if geo is None:
+                geo = read_b2fgmtry('../baserun/b2fgmtry')
+            if b2mn is None:
+                b2mn = sut.scrape_b2mn("b2mn.dat")                
+            if state is None:
+                state = sut.read_b2fstate("b2fstate")
+            if xport is None:
+                xport = sut.read_transport_files(".", dsa=dsa, geo=geo, state=state)
+
+            sy = sut.avg_like_b2plot(geo['gs'][b2mn['jxa']+1,:,1])            
             nc_solps = state['na'][b2mn['jxa']+1,:,8]
             nd_solps = state['na'][b2mn['jxa']+1,:,1]
-            x_nc = dsa
-            
-            xport = sut.read_transport_files(".", dsa=dsa, geo=geo, state=state)
-            
+            x_nc = dsa                   
             flux_carbon = sut.avg_like_b2plot(state['fna'][b2mn['jxa']+1,:,1,8])/sy
             vr_carbon = sut.avg_like_b2plot(xport['vlay'][:,8])/sy
 
