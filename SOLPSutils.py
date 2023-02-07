@@ -549,6 +549,8 @@ def scrape_b2mn(fname):
 
                 if thisvar == "b2mwti_jxa":
                     b2mn['jxa'] = int(this)
+                if thisvar == "b2tqna_inputfile":
+                    b2mn['b2tqna_inputfile'] = int(this)
 
     return b2mn
                     
@@ -623,6 +625,8 @@ def read_b2fstate(fname):
         print('ERROR: b2fstate file not found:',fname)
         return None
 
+    DEBUG = False
+
     data = []
     with open(fname, 'r') as f:
         for i, line in enumerate(f):
@@ -646,7 +650,8 @@ def read_b2fstate(fname):
                 vartype = line.split()[1]
                 varsize = int(line.split()[2])
                 varname = line.split()[3]
-                #print(varname,varsize,state['nx'],state['ny'],state['ns'])
+                if DEBUG:
+                    print(varname,vartype,varsize,state['nx'],state['ny'],state['ns'],numcells)
                 # Some variables have no entries depending on config
                 if varsize == 0:
                     state[varname] = None
@@ -681,11 +686,12 @@ def read_b2fstate(fname):
                             state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,2,2], order = 'F')
                         elif varsize == 4*numcells*state['ns']:
                             # This is a flux quantity by species in 3.1 format
-                            state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,2,2,state['ns']], order = 'F')                        
+                            state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,2,2,state['ns']], order = 'F')
+                        elif varsize%numcells == 0:
+                                print("Warning, must have missed some dimension checks for variable:",varname)
                         else:
-                            if varsize%numcells == 0:
-                                print("Warning, must have missed some dimension checks for variable:",varname)                                
-
+                            # For other dimensions assign as is (e.g., zamin)
+                            state[varname] = np.array(data)
     return state
 
 # ----------------------------------------------------------------------------------------
@@ -821,3 +827,121 @@ def read_input_dat(fileloc, verbose = False):
 
     return {'nsurfs':nsurfs, 'rlocs1':rlocs1, 'zlocs1':zlocs1, 'rlocs2':rlocs2, 'zlocs2':zlocs2,
             'surfmod':surfmod, 'recyct':recyct}
+
+# ----------------------------------------------------------------------------------------
+
+def avg_like_b2plot(slice1D):
+    # Pass in radial flux array, e.g., state['fhe'][b2mn['jxa']+1,1,1]
+    # Just average for interior points and use the end points in guard cells
+    return np.concatenate([[slice1D[1]],(slice1D[1:-1]+slice1D[2:])/2,[slice1D[-1]]])
+
+# ----------------------------------------------------------------------------------------
+
+def read_transport_files(fileloc, dsa=None, geo=None, state=None, force_read_inpufile=False):
+    # Attempts to get transport coefficient data, including pinch term.
+    # Fills using b2.transport.parameters, then b2.transport.inputfile if
+    # b2mn.dat indicates inputfile is active. 
+    #
+    # Uses f90nml
+    #
+    # Inputs:
+    # fileloc : location of b2mn.dat, b2.transport.*
+    # dsa : dsa from read_dsa (or whatever dx_sep to interpolate onto)
+    # geo : geometry dict from read_b2fgmtry 
+    # state : state dict from read_b2fstate
+    #
+    # Note, geo and state only used to get dimensions, only really need
+    # geo['ny'], state['ns']
+    
+    if dsa is None:
+        dsa = read_dsa('dsa')
+    
+    if geo is None:
+        geo = read_b2fgmtry('../baserun/b2fgmtry')
+
+    if state is None:
+        state = read_b2fstate('b2fstate')
+        
+    read_inputfile = False
+    if force_read_inpufile:
+        read_inputfile = True
+
+    # Read b2mn.dat unless overridden by input argument
+    if not read_inputfile:
+        b2mn = scrape_b2mn("b2mn.dat")
+        if ("b2tqna_inputfile" in b2mn.keys()):
+            if b2mn["b2tqna_inputfile"] == 1:
+                read_inputfile = True
+
+    # Initialize variables we want defined. The final arrays will have
+    # a dimension [ny+2] but b2.transport.inputfile may not!
+    dn = np.zeros((geo['ny']+2,state['ns']))
+    dp = np.zeros((geo['ny']+2,state['ns']))
+    chii = np.zeros((geo['ny']+2,state['ns']))
+    chie = np.zeros(geo['ny']+2)
+    vlax = np.zeros((geo['ny']+2,state['ns']))
+    vlay = np.zeros((geo['ny']+2,state['ns']))
+    vsa = np.zeros((geo['ny']+2,state['ns']))
+    sig = np.zeros(geo['ny']+2)
+    alf = np.zeros(geo['ny']+2)    
+
+    try:
+        import f90nml
+        parser = f90nml.Parser()
+        parser.global_start_index=1
+    except:
+        print('f90nml required to read transport input files!')
+        return None
+    
+    try:
+        nml = parser.read('b2.transport.parameters')
+        this = nml['transport']['parm_dna']
+        for ispec in range(len(this)):
+            dn[:,ispec] = this[ispec]
+    except:
+        pass
+    
+    if read_inputfile:
+        try:
+            nml = parser.read('b2.transport.inputfile')
+            tdata = nml['transport']['tdata']
+            nS = len(tdata)
+            for ispec in range(nS):
+                nKinds = len(tdata[ispec])
+                for jkind in range(nKinds):
+                    this = tdata[ispec][jkind]
+
+                    # Check if this kind was filled with none by f90nml (not defined)
+                    test = [i[1] for i in this]
+                    if all(val is None for val in test):
+                        continue
+                    
+                    # Read and interpolate back on dsa
+                    xRaw = [i[0] for i in this] 
+                    yRaw = [i[1] for i in this]
+                    yInterp = np.interp(dsa,xRaw,yRaw)
+                    
+                    if jkind+1 == 1:
+                        dn[:,ispec] = yInterp
+                    elif jkind+1 == 2:
+                        dp[:,ispec] = yInterp
+                    elif jkind+1 == 3:
+                        chii[:,ispec] = yInterp
+                    elif jkind+1 == 4:
+                        chie[:] = yInterp
+                    elif jkind+1 == 5:
+                        vlax[:,ispec] = yInterp                        
+                    elif jkind+1 == 6:
+                        vlay[:,ispec] = yInterp                        
+                    elif jkind+1 == 7:
+                        vsa[:,ispec] = yInterp                        
+                    elif jkind+1 == 8:
+                        sig[:] = yInterp                        
+                    elif jkind+1 == 9:
+                        alf[:] = yInterp                        
+                    
+        except:
+            pass
+        
+        
+    return dict(dn=dn, dp=dp, chii=chii, chie=chie, vlax=vlax, vlay=vlay, vsa=vsa, sig=sig, alf=alf)
