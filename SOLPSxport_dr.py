@@ -141,7 +141,6 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
       plotall           Produce a bunch more plots from the subroutines used in the process
       verbose           Set to True to print a lot more outputs to terminal
       figblock          Set to True if calling from command line and you want to see figures
-      plot_older        Set to True to plot .last10.old profiles, if possible
     Returns:
       Object of class 'SOLPSxport', which can then be used to plot, recall, or modify the saved data
       and rewrite a new b2.transport.inputfile
@@ -232,7 +231,8 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                      chii_min=chii_min, chii_max=chii_max, chie_min=chie_min, chie_max=chie_max,
                      chii_eq_chie=chii_eq_chie, figblock=figblock, plot_older=plot_older,
                      ti_decay_len=ti_decay_len, te_decay_len=te_decay_len, ne_decay_len=ne_decay_len,
-                     ti_decay_min=ti_decay_min, te_decay_min=te_decay_min, ne_decay_min=ne_decay_min)
+                     ti_decay_min=ti_decay_min, te_decay_min=te_decay_min, ne_decay_min=ne_decay_min,
+                     plot_gradient_method=(chii_use_grad or chie_use_grad))
 
     print("Writing to: " + new_filename)
     xp.writeXport(new_filename=new_filename, chie_use_grad=chie_use_grad, chii_use_grad=chii_use_grad,
@@ -266,18 +266,18 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
         interp_te_expt = interpolate.interp1d(xp.data['expData']['fitPsiProf'],xp.data['expData']['fitProfs']['teprof'],kind='linear')
         interp_ti_expt = interpolate.interp1d(xp.data['expData']['fitProfs']['tipsi'],xp.data['expData']['fitProfs']['tiprof'],kind='linear')
 
-        print()
-        print("Using profile shift of: %.3e (in psiN)"%exp_prof_rad_shift)
-        print("ne_sep Expt: %.3e (m^-3)"%(interp_ne_expt(1.0)*1e20))
-        print("Te_sep Expt: %.3f (eV)"%(interp_te_expt(1.0)*1000))
-        print("Ti_sep Expt: %.3f (eV)"%(interp_ti_expt(1.0)*1000))
-
         interp_ne_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'],xp.data['solpsData']['last10']['ne'])
         interp_te_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'],xp.data['solpsData']['last10']['te'])
-        interp_ti_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'],xp.data['solpsData']['last10']['ti'])        
-        print()
+        interp_ti_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'],xp.data['solpsData']['last10']['ti'])
+
+        print("\nUsing profile shift of: %.3e (in psiN)\n"%exp_prof_rad_shift)
+        print("ne_sep Expt:  %.3e (m^-3)"%(interp_ne_expt(1.0)*1e20))
         print("ne_sep SOLPS: %.3e (m^-3)"%interp_ne_solps(1.0))
+
+        print("\nTe_sep Expt:  %.3f (eV)"%(interp_te_expt(1.0)*1000))
         print("Te_sep SOLPS: %.3f (eV)"%interp_te_solps(1.0))
+
+        print("\nTi_sep Expt:  %.3f (eV)"%(interp_ti_expt(1.0)*1000))
         print("Ti_sep SOLPS: %.3f (eV)"%interp_ti_solps(1.0))
 
     if update_old_last10s:

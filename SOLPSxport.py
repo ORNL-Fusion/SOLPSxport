@@ -992,6 +992,7 @@ class SOLPSxport:
                       Dn_max = 100, chie_max = 400, chii_max = 400, vrc_mag=0.0, 
                       reduce_Ti_fileloc = None,
                       fractional_change = 1, exp_prof_rad_shift = 0, chii_eq_chie = False,
+                      plot_gradient_method = False,
                       use_ratio_bc = True, debug_plots = False, verbose = False, figblock = False,plot_older = False,
                       ti_decay_len = 0.015, te_decay_len = None, ne_decay_len = None,
                       ti_decay_min = 1, te_decay_min = 1, ne_decay_min = 1e18):
@@ -1238,7 +1239,9 @@ class SOLPSxport:
                                                'vr_carbon': vr_carbon, 'D_carbon': D_carbon,
                                                'limits': coef_limits}
         if plotit:
-            self.plotXportCoef(figblock=figblock, plot_Ti = not chii_eq_chie, plot_older=plot_older)
+            self.plotXportCoef(figblock=figblock, plot_Ti = not chii_eq_chie,
+                               plot_older=('ne_old' in self.data['solpsData']['last10'].keys()),
+                               include_gradient_method=plot_gradient_method)
 
         if debug_plots:
             plt.figure()
@@ -1298,11 +1301,16 @@ class SOLPSxport:
 
     # ----------------------------------------------------------------------------------------
 
-    def plotXportCoef(self, figblock=False, figsize=(14,7), plot_Ti = False, plot_older = False):
+    def plotXportCoef(self, figblock=False, figsize=(14,7), plot_Ti = True, plot_older = False,
+                      include_gradient_method = False):
         """
         Plot the upstream profiles from SOLPS compared to the experiment
         along with the corresponding updated transport coefficients
         """
+        if include_gradient_method:
+            updated_flux_label = 'Updated (fluxes)'
+        else:
+            updated_flux_label = 'Updated'
 
         dnew_ratio = self.data['solpsData']['xportCoef']['dnew_ratio']
         dnew_flux = self.data['solpsData']['xportCoef']['dnew_flux']
@@ -1312,7 +1320,7 @@ class SOLPSxport:
         kinew_flux = self.data['solpsData']['xportCoef']['kinew_flux']
         coef_limits = self.data['solpsData']['xportCoef']['limits']
 
-#        psi_data_fit = self.data['expData']['fitPsiProf'] # JDL: Shift here??
+        psi_data_fit = self.data['expData']['fitPsiProf'] # JDL: Shift here??
         
         if 'te_mod' in self.data['expData']['fitProfs'].keys():            
             teexp = 1.0e3*self.data['expData']['fitProfs']['te_mod']
@@ -1344,7 +1352,7 @@ class SOLPSxport:
         kiold = self.data['solpsData']['last10']['ki']
 
         # Check if last10.old profiles exist
-        if 'ne_old' in self.data['solpsData']['last10']:
+        if 'ne_old' in self.data['solpsData']['last10'].keys():
             neolder = self.data['solpsData']['last10']['ne_old']
             dolder = self.data['solpsData']['last10']['dn_old']
             teolder = self.data['solpsData']['last10']['te_old']
@@ -1378,48 +1386,50 @@ class SOLPSxport:
             nplots = 2
 
         f, ax = plt.subplots(2, nplots, sharex = 'all', figsize=figsize)
-        ax[0, 0].plot(neexppsi, neexp / 1.0e19, '--bo', lw = 1, label = 'TS data')
-        ax[0, 0].plot(psi_solps, neold / 1.0e19, 'xr', lw = 2, label = 'SOLPS')
         if plot_older:
-            ax[0, 0].plot(psi_solps, neolder / 1.0e19, '-g', lw = 1, label = 'SOLPS old')
+            ax[0, 0].plot(psi_solps, neolder / 1.0e19, '--g', lw = 1, label = 'previous SOLPS')
+        ax[0, 0].plot(psi_data_fit, neexp / 1.0e19, '--bo', lw = 1, label = 'Exp. data')
+        ax[0, 0].plot(psi_solps, neold / 1.0e19, '-xr', lw = 2, label = 'SOLPS')
         ax[0, 0].set_ylabel('n$_e$ (10$^{19}$ m$^{-3}$)')
         ax[0, 0].legend(loc = 'best', fontsize=12)
         ax[0, 0].set_ylim([0, max_ne*headroom])
         ax[0, 0].grid('on')
 
-        ax[1, 0].semilogy(psi_solps, dnew_flux, '-ok', lw = 2, label = 'Updated (fluxes)')
-        ax[1, 0].semilogy(psi_solps, dnew_ratio, '-+c', lw = 1, label = 'Updated (gradients)')
-        ax[1, 0].semilogy(psi_solps, dold, '-xr', lw = 2, label = 'SOLPS input')
-        if plot_older:
-            ax[1, 0].semilogy(psi_solps, dolder, '-g', lw = 1, label = 'SOLPS old')
         if coef_limits['Dn_min'] is not None:
             ax[1, 0].semilogy(xlims, [coef_limits['Dn_min'], coef_limits['Dn_min']], '--m')
         if coef_limits['Dn_max'] is not None:
             ax[1, 0].semilogy(xlims, [coef_limits['Dn_max'], coef_limits['Dn_max']], '--m')
+        if plot_older:
+            ax[1, 0].semilogy(psi_solps, dolder, '--g', lw = 1, label = 'previous iteration')
+        ax[1, 0].semilogy(psi_solps, dold, '-xr', lw = 2, label = 'SOLPS input')
+        ax[1, 0].semilogy(psi_solps, dnew_flux, '-ok', lw = 2, label = updated_flux_label)
+        if include_gradient_method:
+            ax[1, 0].semilogy(psi_solps, dnew_ratio, '-+c', lw = 1, label = 'Updated (gradients)')
         ax[1, 0].set_ylabel('D (m$^2$/s)')
         ax[1, 0].set_xlabel('$\psi_N$')
         ax[1, 0].set_ylim([min_dn/np.sqrt(headroom), max_dn*headroom])
         ax[1, 0].grid('on')
+        ax[0, 1].plot(psi_data_fit, teexp / 1.0e3, '--bo', lw = 1, label = 'Exp. Data')
 
-        ax[0, 1].plot(teexppsi, teexp / 1.0e3, '--bo', lw = 1, label = 'TS Data')
-        ax[0, 1].plot(psi_solps, teold / 1.0e3, 'xr', lw = 2, label = 'SOLPS')
         if plot_older:
-            ax[0, 1].plot(psi_solps, teolder / 1.0e3, '-g', lw = 1, label = 'SOLPS old')        
+            ax[0, 1].plot(psi_solps, teolder / 1.0e3, '--g', lw = 1, label = 'SOLPS old')
+        ax[0, 1].plot(psi_solps, teold / 1.0e3, 'xr', lw = 2, label = 'SOLPS')
         ax[0, 1].set_ylabel('T$_e$ (keV)')
         ax[0, 1].set_ylim([0, max_Te*headroom])
         ax[0, 1].grid('on')
         if self.data['workdir_short'] is not None:
             ax[0, 1].set_title(self.data['workdir_short'], fontsize=10)
 
-        ax[1, 1].semilogy(psi_solps, kenew_flux, '-ok', lw = 2, label = 'Updated (fluxes)')
-        ax[1, 1].semilogy(psi_solps, kenew_ratio, '-+c', lw = 1, label = 'Updated (gradients)')
-        ax[1, 1].semilogy(psi_solps, keold, '-xr', lw = 2, label = 'SOLPS input')
-        if plot_older:
-            ax[1, 1].semilogy(psi_solps, keolder, '-g', lw = 1, label = 'SOLPS old')
         if coef_limits['chie_min'] is not None:
             ax[1, 1].semilogy(xlims, [coef_limits['chie_min'], coef_limits['chie_min']], '--m')
         if coef_limits['chie_max'] is not None:
             ax[1, 1].semilogy(xlims, [coef_limits['chie_max'], coef_limits['chie_max']], '--m')
+        if plot_older:
+            ax[1, 1].semilogy(psi_solps, keolder, '--g', lw = 1, label = 'previous iteration')
+        ax[1, 1].semilogy(psi_solps, keold, '-xr', lw = 2, label = 'SOLPS input')
+        ax[1, 1].semilogy(psi_solps, kenew_flux, '-ok', lw = 2, label = updated_flux_label)
+        if include_gradient_method:
+            ax[1, 1].semilogy(psi_solps, kenew_ratio, '-+c', lw = 1, label = 'Updated (gradients)')
         ax[1, 1].set_ylabel('$\chi_e$ (m$^2$/s)')
         ax[1, 1].set_xlabel('$\psi_N$')
         ax[1, 1].set_xlim([np.min(psi_solps) - 0.01, np.max(psi_solps) + 0.01])
@@ -1427,23 +1437,24 @@ class SOLPSxport:
         ax[1, 1].grid('on')
 
         if plot_Ti:
-            ax[0, 2].plot(psi_solps, tiold / 1.0e3, 'xr', lw = 2, label = 'SOLPS')
             ax[0, 2].plot(tiexppsi, tiexp / 1.0e3, '--bo', lw = 1, label = 'Exp. Data')
             if plot_older:
-                ax[0, 2].plot(psi_solps, tiolder / 1.0e3, '-g', lw = 1, label = 'SOLPS old')        
+                ax[0, 2].plot(psi_solps, tiolder / 1.0e3, '--g', lw = 1, label = 'SOLPS old')
+            ax[0, 2].plot(psi_solps, tiold / 1.0e3, 'xr', lw = 2, label = 'SOLPS')
             ax[0, 2].set_ylabel('T$_i$ (keV)')
             ax[0, 2].set_ylim([0, max_Ti*headroom])
             ax[0, 2].grid('on')
 
-            ax[1, 2].semilogy(psi_solps, kinew_flux, '-ok', lw = 2, label = 'Updated (fluxes)')
-            ax[1, 2].semilogy(psi_solps, kinew_ratio, '-+c', lw = 1, label = 'Updated (gradients)')
-            ax[1, 2].semilogy(psi_solps, kiold, '-xr', lw = 2, label = 'SOLPS input')
-            if plot_older:
-                ax[1, 2].semilogy(psi_solps, kiolder, '-g', lw = 1, label = 'SOLPS old')
             if coef_limits['chii_min'] is not None:
                 ax[1, 2].semilogy(xlims, [coef_limits['chii_min'], coef_limits['chii_min']], '--m')
             if coef_limits['chii_max'] is not None:
                 ax[1, 2].semilogy(xlims, [coef_limits['chii_max'], coef_limits['chii_max']], '--m')
+            if plot_older:
+                ax[1, 2].semilogy(psi_solps, kiolder, '--g', lw = 1, label = 'previous iteration')
+            ax[1, 2].semilogy(psi_solps, kiold, '-xr', lw = 2, label = 'SOLPS input')
+            ax[1, 2].semilogy(psi_solps, kinew_flux, '-ok', lw = 2, label = updated_flux_label)
+            if include_gradient_method:
+                ax[1, 2].semilogy(psi_solps, kinew_ratio, '-+c', lw = 1, label = 'Updated (gradients)')
             ax[1, 2].set_ylabel('$\chi_i$ (m$^2$/s)')
             ax[1, 2].set_xlabel('$\psi_N$')
             ax[1, 2].set_xlim(xlims)
