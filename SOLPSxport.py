@@ -817,29 +817,42 @@ class SOLPSxport:
         """
         Calls b2plot to get the particle flux profiles
         """
-        # x variable is identical for all of these
-        x_fTot, fluxTot = sut.B2pl("fnay za m* 0 0 sumz sy m/ writ jxa f.y")
-        x_fTot, fluxD = sut.B2pl("fnay 1 zsel sy m/ writ jxa f.y")
-        dummy, fluxConv = sut.B2pl("na za m* vlay m* 0 0 sumz writ jxa f.y")
-        dummy, na = sut.B2pl("na 0 0 sumz writ jxa f.y")
-        dummy, qe = sut.B2pl("fhey sy m/ writ jxa f.y")
-        dummy, qi = sut.B2pl("fhiy sy m/ writ jxa f.y")
 
-#        dummy, testq = sut.B2pl("fhey writ jxa f.y")
-#        print(testq)
-#                    dsa = sut.read_dsa("dsa")
-#        b2mn = sut.scrape_b2mn("b2mn.dat")
-#        geo = sut.read_b2fgmtry("../baserun/b2fgmtry")        
-#        state = sut.read_b2fstate("b2fstate")
-#        sy = geo['gs'][b2mn['jxa']+1,:,1]
-#        print(state['fhe'][b2mn['jxa']+1,:,1]/sy)
-#        print(state['fhe'][b2mn['jxa']+1,:,1])
+        try:
+            print('Getting data from solps output')
+            b2mn = sut.scrape_b2mn("b2mn.dat")
+            geo = sut.read_b2fgmtry("../baserun/b2fgmtry")        
+            state = sut.read_b2fstate("b2fstate")
+            dsa = sut.read_dsa("dsa")
+            xport = sut.read_transport_files(".", dsa=dsa, geo=geo, state=state)
+            
+            sy = sut.avg_like_b2plot(geo['gs'][b2mn['jxa']+1,:,1])        
+            z = np.ones((geo['nx']+2,geo['ny']+2,state['ns']))
+            for i in range(state['ns']):
+                z[:,:,i] = z[:,:,i]*state['zamin'][i]        
+            fluxTot = sut.avg_like_b2plot(np.sum(state['fna'][b2mn['jxa']+1,:,1,:]*z[b2mn['jxa']+1,:,:],axis=1))/sy
+            fluxD   = sut.avg_like_b2plot(state['fna'][b2mn['jxa']+1,:,1,1])/sy
+            fluxConv = sut.avg_like_b2plot(np.sum(xport['vlay'][:,:]*state['na'][b2mn['jxa']+1,:,:]*z[b2mn['jxa']+1,:,:],axis=1))/sy
+                
+            na = np.sum(state['na'][b2mn['jxa']+1,:,:],axis=1)        
+            qe = sut.avg_like_b2plot(state['fhe'][b2mn['jxa']+1,:,1])/sy
+            qi = sut.avg_like_b2plot(state['fhi'][b2mn['jxa']+1,:,1])/sy
+            x_fTot = dsa
+        except:
+            print('Falling back to b2plot calls')
+            # x variable is identical for all of these
+            x_fTot, fluxTot = sut.B2pl("fnay za m* 0 0 sumz sy m/ writ jxa f.y")
+            x_fTot, fluxD = sut.B2pl("fnay 1 zsel sy m/ writ jxa f.y")
+            dummy, fluxConv = sut.B2pl("na za m* vlay m* 0 0 sumz writ jxa f.y")
+            dummy, na = sut.B2pl("na 0 0 sumz writ jxa f.y")
+            dummy, qe = sut.B2pl("fhey sy m/ writ jxa f.y")
+            dummy, qi = sut.B2pl("fhiy sy m/ writ jxa f.y")
         
-        for c in [fluxTot, fluxConv]:
-            if not c:
-                print("WARNING: Variable not populated by b2plot in getSOLPSfluxProfs")
-                print("  Make sure ncl_ncar and netcdf modules are loaded")
-                break
+            for c in [fluxTot, fluxConv]:
+                if not c:
+                    print("WARNING: Variable not populated by b2plot in getSOLPSfluxProfs")
+                    print("  Make sure ncl_ncar and netcdf modules are loaded")
+                    break
 
         self.data['solpsData']['profiles']['x_fTot'] = np.array(x_fTot)
         self.data['solpsData']['profiles']['fluxTot'] = np.array(fluxTot)
@@ -885,17 +898,34 @@ class SOLPSxport:
         """
         Calls b2plot to get the carbon profiles
         """
+        try:
+            dsa = sut.read_dsa("dsa")            
+            b2mn = sut.scrape_b2mn("b2mn.dat")
+            geo = sut.read_b2fgmtry("../baserun/b2fgmtry")        
+            state = sut.read_b2fstate("b2fstate")
+            sy = sut.avg_like_b2plot(geo['gs'][b2mn['jxa']+1,:,1])
+            
+            nc_solps = state['na'][b2mn['jxa']+1,:,8]
+            nd_solps = state['na'][b2mn['jxa']+1,:,1]
+            x_nc = dsa
+            
+            xport = sut.read_transport_files(".", dsa=dsa, geo=geo, state=state)
+            
+            flux_carbon = sut.avg_like_b2plot(state['fna'][b2mn['jxa']+1,:,1,8])/sy
+            vr_carbon = sut.avg_like_b2plot(xport['vlay'][:,8])/sy
 
-        x_nc, nc_solps = sut.B2pl("na 8 zsel writ jxa f.y")
-        x_nd, nd_solps = sut.B2pl("na 1 zsel writ jxa f.y")
-        dummy, flux_carbon = sut.B2pl("fnay 8 zsel psy writ jxa f.y")  # x variables are the same
-        dummy, vr_carbon = sut.B2pl("vlay 8 zsel writ jxa f.y")
+        except:
+            print('Falling back to b2plot')
+            x_nc, nc_solps = sut.B2pl("na 8 zsel writ jxa f.y")
+            dummy, nd_solps = sut.B2pl("na 1 zsel writ jxa f.y")
+            dummy, flux_carbon = sut.B2pl("fnay 8 zsel psy writ jxa f.y")  # x variables are the same JDL: use Z here?
+            dummy, vr_carbon = sut.B2pl("vlay 8 zsel writ jxa f.y")
         
-        for c in [flux_carbon, vr_carbon]:
-            if not c:
-                print("WARNING: Variable not populated by b2plot in getSOLPSCarbonProfs")
-                print("  Make sure ncl_ncar and netcdf modules are loaded")
-                break
+            for c in [flux_carbon, vr_carbon]:
+                if not c:
+                    print("WARNING: Variable not populated by b2plot in getSOLPSCarbonProfs")
+                    print("  Make sure ncl_ncar and netcdf modules are loaded")
+                    break
 
         self.data['solpsData']['profiles']['x_nC'] = np.array(x_nc)
         self.data['solpsData']['profiles']['nC'] = np.array(nc_solps)
