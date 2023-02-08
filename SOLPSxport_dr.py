@@ -307,8 +307,7 @@ if __name__ == '__main__':
 def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
                   profiles_fileloc = None, shotnum = None, ptimeid = None, prunid = None,
                   use_existing_last10 = False, chie_use_grad = False, chii_use_grad = False,
-                  new_b2xportparams = True,
-                  reduce_Ti_fileloc = '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt',
+                  new_b2xportparams = True, td_fileloc = None, reduce_Ti_fileloc = None,
                   impurity_list=['c'], plotall = False, plot_xport_coeffs = True,
                   ntim_new = 100, dtim_new = '1.0e-6', Dn_min = 0.0005):
     """
@@ -317,15 +316,17 @@ def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
     number and updates the b2mn.dat file with short time steps in preparation for the new run
 
     Hide input files from this routine by using '_' in the filename after 'b2.transport.inputfile'
+
+    Example file for reduce_ti_fileloc: '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt'
     """
     
     xp = main(gfile_loc = gfile_loc, new_filename = new_filename,
               profiles_fileloc = profiles_fileloc, shotnum = shotnum, ptimeid = ptimeid,
               prunid = prunid, Dn_min = Dn_min, use_existing_last10 = use_existing_last10,
               chie_use_grad=chie_use_grad, chii_use_grad=chii_use_grad,
-              new_b2xportparams=new_b2xportparams, update_old_last10s=True,
+              new_b2xportparams=new_b2xportparams, update_old_last10s=True, ti_fileloc=td_fileloc,
               reduce_Ti_fileloc = reduce_Ti_fileloc, impurity_list=impurity_list, plotall = plotall,
-              plot_xport_coeffs = plot_xport_coeffs, verbose=False)
+              plot_xport_coeffs = plot_xport_coeffs, verbose=False, figblock=False)
     
     allfiles = os.listdir('.')
     all_incs = [int(i[22:]) for i in allfiles if i[:22] == 'b2.transport.inputfile' and
@@ -335,8 +336,9 @@ def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
         inc_num = np.max(all_incs)
     else:
         inc_num = 0
-    os.rename('b2fstati', 'b2fstati' + str(inc_num+1))
     os.rename('b2.transport.inputfile', 'b2.transport.inputfile' + str(inc_num+1))
+    os.system('cp b2fstate b2fstati')
+    os.system('cp b2fstate b2fstate' + str(inc_num+1))
     os.rename(new_filename, 'b2.transport.inputfile')
     if new_b2xportparams:
         os.rename('b2.transport.parameters', 'b2.transport.parameters' + str(inc_num+1))
