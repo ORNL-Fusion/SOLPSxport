@@ -4,7 +4,7 @@ collection of utility routines for use with other SOLPS modules
 Several routines that used to be here have simpler/more robust duplicates in common libraries
 I've left those routines below but commented them out and given a good replacement option
 
-A. Sontag, R.S. Wilcox 2019
+A. Sontag, R.S. Wilcox, J.D. Lore 2019-2023
 """
 
 from os import path, system, rename
@@ -147,6 +147,7 @@ def B2pl(cmds, wdir='.', debug=False):
         print('B2Plot writing failed for call:')
         print(cmds)
         print('in directory: ' + wdir + '\n')
+        raise OSError
 
     x, y = [], []
     with open(fname) as f:
@@ -512,33 +513,189 @@ def read_b2_transport_inputfile(infileloc, carbon=True):
         return {'rn': rn, 'dn': dn, 'ki': ki, 'ke': ke}
 
 # ----------------------------------------------------------------------------------------
+def scrape_b2mn(fname):
+    b2mn = {}
+    if not path.exists(fname):
+        print('ERROR: b2mn.dat file not found:',fname)
+        return b2mn
+    
+    with open(fname, 'r') as f:
+        for i, line in enumerate(f):
+            sline = line.strip()
+            if len(line) <= 1:
+                continue
+            if line.strip()[0] == "#" or sline[0] == "*":
+                continue
+            else:
+                count_quotes = 0
+                quote_pos = []
+                for i,c in enumerate(sline):
+                    if c == "'":
+                        count_quotes = count_quotes + 1
+                        quote_pos.append(i)
+                if count_quotes == 2:
+                    # For cases where variable is enclosed in single quotes but value is not: 'b2mwti_jxa'                       
+                    thisvar = sline[quote_pos[0]+1:quote_pos[1]]
+                    this = sline[quote_pos[1]+1:-1]
+                else:
+                    # Typically this is for 4 single quotes
+                    # For cases where both variable and value are enclosed in single quotes: 'b2mwti_jxa'   '36'
+                    #
+                    # This can occur when some comment after the value has quotes in it
+                    # e.g., "'b2sicf_phm0'  '0.0'  Old value '1.0'"
+                    thisvar = sline[quote_pos[0]+1:quote_pos[1]]
+                    this = sline[quote_pos[2]+1:quote_pos[3]]
 
 
-def read_b2fgmtry(fileloc):
-    """
-    Modified from omfit_solps.py
-    """
+                if thisvar == "b2mwti_jxa":
+                    b2mn['jxa'] = int(this)
+                if thisvar == "b2tqna_inputfile":
+                    b2mn['b2tqna_inputfile'] = int(this)
 
-    with open(fileloc, 'r') as f:
-        tmp = f.read()
-    tmp = tmp.replace('\n', ' ')
-    tmp = tmp.split("*c")
-    tmp = [[f for f in x.split(' ') if f] for x in tmp]
+    return b2mn
+                    
+# ----------------------------------------------------------------------------------------
+def read_dsa(fname):
+    if not path.exists(fname):
+        print('ERROR: b2fgmtry file not found:',fname)
+        return None
 
-    m = {'int': int, 'real': float, 'char': str}
+    dsa = []
+    with open("dsa", 'r') as f:
+        for i,line in enumerate(f):
+            dsa.append(float(line.split()[0]))
+    return dsa
+# ----------------------------------------------------------------------------------------
 
-    b2fgmtry = {}
+def read_b2fgmtry(fname):
+    if not path.exists(fname):
+        print('ERROR: b2fgmtry file not found:',fname)
+        return None
 
-    for line in tmp[1:]:
-        if len(line) > 4:
-            b2fgmtry[line[3]] = np.array(list(map(m[line[1]], line[4:])))
-        else:
-            b2fgmtry[line[3]] = None
+    data = []
+    with open(fname, 'r') as f:
+        for i, line in enumerate(f):
 
-    return b2fgmtry
+            # Special handling for first few lines
+            if i == 0:
+                version = line.split()[0][7:-1]
+                geo = {'version':version}
+                continue
+            elif i == 1:
+                continue
+            elif i == 2:
+                # Assume starts with nx,ny after version
+                geo['nx'] = int(line.split()[0])
+                geo['ny'] = int(line.split()[1])
+                numcells = (geo['nx']+2)*(geo['ny']+2)
+                continue
+            
+            if line.split()[0] == '*cf:':
+                vartype = line.split()[1]
+                varsize = int(line.split()[2])
+                varname = line.split()[3]
+                # Some variables have no entries depending on config
+                if varsize == 0:
+                    geo[varname] = None
+                data = []
+            else:
+                # Parse by type
+                if vartype == "char":
+                    geo[varname] = line.strip()
+                else:
+                    splitline = line.split()
+                    for value in splitline:
+                        if vartype == "int":
+                            data.append(int(value))
+                        else:                            
+                            data.append(float(value))
+                        
+                    if len(data) == varsize:
+                        if varsize%numcells == 0:
+                            geo[varname] = np.array(data).reshape([geo['nx']+2,geo['ny']+2,int(varsize/numcells)], order = 'F')
+                        else:
+                            geo[varname] = np.array(data)
 
+    return geo
 
 # ----------------------------------------------------------------------------------------
+
+def read_b2fstate(fname):
+    if not path.exists(fname):
+        print('ERROR: b2fstate file not found:',fname)
+        return None
+
+    DEBUG = False
+
+    data = []
+    with open(fname, 'r') as f:
+        for i, line in enumerate(f):
+
+            # Special handling for first few lines
+            if i == 0:
+                version = line.split()[0][7:-1]
+                state = {'version':version}
+                continue
+            elif i == 1:
+                continue
+            elif i == 2:
+                # Assume starts with nx,ny,ns after version
+                state['nx'] = int(line.split()[0])
+                state['ny'] = int(line.split()[1])
+                state['ns'] = int(line.split()[2])                
+                numcells = (state['nx']+2)*(state['ny']+2)
+                continue
+            
+            if line.split()[0] == '*cf:':
+                vartype = line.split()[1]
+                varsize = int(line.split()[2])
+                varname = line.split()[3]
+                if DEBUG:
+                    print(varname,vartype,varsize,state['nx'],state['ny'],state['ns'],numcells)
+                # Some variables have no entries depending on config
+                if varsize == 0:
+                    state[varname] = None
+                data = []
+            else:
+                # Parse by type
+                if vartype == "char":
+                    state[varname] = line.strip()
+                else:
+                    splitline = line.split()
+                    for value in splitline:
+                        if vartype == "int":
+                            data.append(int(value))
+                        else:                            
+                            data.append(float(value))
+                        
+                    if len(data) == varsize:
+                        if varsize == numcells:
+                            # This is a scalar quantity
+                            state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2], order = 'F')
+                        elif varsize == 2*numcells:
+                            # This is a flux quantity
+                            state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,2], order = 'F')
+                        elif varsize == numcells*state['ns']:
+                            # This is a scalar quantity by species
+                            state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,state['ns']], order = 'F')
+                        elif varsize == 2*numcells*state['ns']:
+                            # This is a flux quantity by species
+                            state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,2,state['ns']], order = 'F')
+                        elif varsize == 4*numcells:
+                            # This is a flux quantity in 3.1 format
+                            state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,2,2], order = 'F')
+                        elif varsize == 4*numcells*state['ns']:
+                            # This is a flux quantity by species in 3.1 format
+                            state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,2,2,state['ns']], order = 'F')
+                        elif varsize%numcells == 0:
+                                print("Warning, must have missed some dimension checks for variable:",varname)
+                        else:
+                            # For other dimensions assign as is (e.g., zamin)
+                            state[varname] = np.array(data)
+    return state
+
+# ----------------------------------------------------------------------------------------
+
 
 def new_b2xportparams(fileloc, dperp=None, chieperp=None, chiiperp=None, verbose=False, ndigits=8):
     """
@@ -615,113 +772,7 @@ def new_b2xportparams(fileloc, dperp=None, chieperp=None, chiiperp=None, verbose
         for i in range(len(lines)):
             f.write(lines[i])
 
-
 # ----------------------------------------------------------------------------------------
-
-def read_b2fstat(fileloc):
-    """
-    Modified from omfit_solps.py
-    """
-    with open(fileloc, 'r') as f:
-        lines = f.readlines()
-
-    b2fstat = {'__notes__': [], '__unhandled__': []}
-
-    # Initialize
-    data = np.array([])
-
-    translations = {'real': 'float', 'char': 'str'}
-
-    b2fstat['nx'], b2fstat['ny'], b2fstat['ns'] = 0, 0, 0
-
-    def close_field():
-        # Handle previous field
-        if n > 0:
-            print('Finishing previous field;    dat_type = "{}", n = {}, ' +
-                  'names = {}, len(names) = {}'.format(dat_type, n, names, len(names)))
-            if len(names) == 1:
-                # 2D arrays: X Y
-                if n == (b2fstat['nx'] + 2) * (b2fstat['ny'] + 2):
-                    # This is an X by Y spatial array with guard cells
-                    b2fstat[names[0]] = data.reshape(-1, b2fstat['nx'] + 2)
-                elif n == b2fstat['nx'] * b2fstat['ny']:
-                    # This is an X by Y spatial array with no guard cells
-                    b2fstat[names[0]] = data.reshape(-1, b2fstat['nx'])
-
-                # 3D arrays - X Y S
-                elif n == (b2fstat['nx'] + 2) * (b2fstat['ny'] + 2) * b2fstat['ns']:
-                    # This is an X by Y by species array with guard cells
-                    b2fstat[names[0]] = data.reshape(b2fstat['ns'], -1, b2fstat['nx'] + 2)
-                elif n == (b2fstat['nx']) * (b2fstat['ny']) * b2fstat['ns']:
-                    # This is an X by Y by species array with no guard cells
-                    b2fstat[names[0]] = data.reshape(b2fstat['ns'], -1, b2fstat['nx'])
-
-                # 3D arrays - X Y v
-                # Page 183 of the 2015 Feb 27 SOLPS manual mentions "fhe - (-1:nx, -1:ny, 0:1) real*8 array
-                # I think there's a row major vs. column major difference going on or something, but anyway,
-                # python gets the array out correctly if nx corresponds to the last axis when 2D, which is
-                # the opposite of the documentation, so the v axis with length 2 should be the first axis in
-                # python.
-                elif n == (b2fstat['nx'] + 2) * (b2fstat['ny'] + 2) * 2:
-                    # This is an X by Y by 2 (probably poloidal & radial components) array w/ guard cells.
-                    b2fstat[names[0]] = data.reshape(2, -1, b2fstat['nx'] + 2)
-                elif n == b2fstat['nx'] * b2fstat['ny'] * 2:
-                    # This is an X by Y by 2 (probably poloidal & radial components) array w/o guard cells.
-                    b2fstat[names[0]] = data.reshape(2, -1, b2fstat['nx'])
-
-                # 4D arrays - X Y S v
-                # Manual calls fna X Y v S, so it should be S v Y X here.
-                elif n == (b2fstat['nx'] + 2) * (b2fstat['ny'] + 2) * b2fstat['ns'] * 2:
-                    # This is an X by Y by species by 2 array w/ guard cells.
-                    b2fstat[names[0]] = data.reshape(b2fstat['ns'], 2, -1, b2fstat['nx'] + 2)
-                elif n == (b2fstat['nx']) * (b2fstat['ny']) * b2fstat['ns'] * 2:
-                    # This is an X by Y by species by 2 array w/o guard cells.
-                    b2fstat[names[0]] = data.reshape(b2fstat['ns'], 2, -1, b2fstat['nx'])
-
-                else:
-                    # Can't identify higher dims of this or it is just 1D, so don't mess with it
-                    b2fstat[names[0]] = data
-            elif len(names) == n:
-                for ii, name in enumerate(names):
-                    b2fstat[name] = data[ii]
-            else:
-                print('WARNING! Problem parsing b2fstate or b2fstati in omfit_solps class: ' +
-                      'Cannot handle more than one name unless length of names matches length' +
-                      ' of data!')
-                b2fstat['__unhandled__'] += [{'names': names, 'data': data}]
-
-    cflines = []
-    for i, line in enumerate(lines):
-        if line.startswith('*cf:'):
-            cflines += [i]
-
-    cflines += [len(lines)]
-
-    if cflines[0] > 0:
-        print('    Found header line(s), adding to notes: {}'.format(lines[: cflines[0]]))
-        b2fstat['__notes__'] += [line.split('\n')[0] for line in lines[: cflines[0]]]
-
-    for i in range(len(cflines) - 1):
-        print('Setting up field: {}'.format(lines[cflines[i]].split('\n')[0]))
-        dat_type_string = lines[cflines[i]].split()[1].strip()
-        dat_type_string = translations.get(dat_type_string, dat_type_string)
-        dat_type = eval(dat_type_string)
-        n = int(lines[cflines[i]].split()[2])
-        names = lines[cflines[i]].split()[3].split(',')
-        print('   dat_type = "{}" / "{}", n = {}, names = {}, len(names) = {}'.format(
-              dat_type_string, dat_type, n, names, len(names)),)
-
-        raw = lines[cflines[i] + 1: cflines[i + 1]]
-        if dat_type_string != 'char':
-            data = np.array(' '.join(raw).split()).astype(dat_type)
-        else:
-            data = lines[cflines[i] + 1].split('\n')[0][1:]
-        close_field()
-
-    return b2fstat
-
-# ----------------------------------------------------------------------------------------
-
 
 def read_input_dat(fileloc, verbose = False):
     """
@@ -778,41 +829,119 @@ def read_input_dat(fileloc, verbose = False):
             'surfmod':surfmod, 'recyct':recyct}
 
 # ----------------------------------------------------------------------------------------
-# def shift(arr,ns):
-#     """
-#     Use np.roll for this instead ('append' doesn't work for numpy arrays)
-#     2nd argument needs to be opposite for np.roll (2 --> -2)
-#     """
-#     print("Use np.roll instead of this custom 'shift' routine")
-#     new_arr=arr[ns:]
-#     for e in arr[:ns]:
-#         new_arr.append(e)
-#
-#     return new_arr
-#
+
+def avg_like_b2plot(slice1D):
+    # Pass in radial flux array, e.g., state['fhe'][b2mn['jxa']+1,1,1]
+    # Just average for interior points and use the end points in guard cells
+    return np.concatenate([[slice1D[1]],(slice1D[1:-1]+slice1D[2:])/2,[slice1D[-1]]])
+
 # ----------------------------------------------------------------------------------------
-# def deriv(x,y):
-#     """
-#     This function duplicates the deriv finite differencing function from IDL
-#
-#     Use np.gradient(y) / np.gradient(x) instead of this, it handles end indeces properly
-#     """
-#
-#     xx = np.array(x)
-#     y = np.array(y)
-#
-#     x12 = xx - np.roll(xx,1)
-#     x01 = np.roll(xx,-1) - xx
-#     x02 = np.roll(xx,-1) - np.roll(xx,1)
-#
-#     d = np.roll(y,-1)*(x12/(x01*x02))+y*(1/x12-1/x01)-np.roll(y,1)*(x01/(x02*x12))
-#
-#     # x12 = xx - shift(xx,-1)
-#     # x01 = shift(xx,1) - xx
-#     # x02 = shift(xx,1) - shift(xx,-1)
-#
-#     # d = shift(y,1)*(x12/(x01*x02))+y*(1/x12-1/x01)-shift(y,-1)*(x01/(x02*x12))
-#     d[0]=y[0]*(x01[1]+x02[1])/(x01[1]*x02[1])-y[1]*x02[1]/(x01[1]*x12[1])+y[2]*x01[1]/(x02[1]*x12[1])
-#     d[-1]=y[-3]*x12[-2]/(x01[-2]*x02[-2])+y[-2]*x02[-2]/(x01[-2]*x12[-2])-y[-1]*(x02[-2]+x12[-2])/(x02[-2]*x12[-2])
-#
-#     return d
+
+def read_transport_files(fileloc, dsa=None, geo=None, state=None, force_read_inpufile=False):
+    # Attempts to get transport coefficient data, including pinch term.
+    # Fills using b2.transport.parameters, then b2.transport.inputfile if
+    # b2mn.dat indicates inputfile is active. 
+    #
+    # Uses f90nml
+    #
+    # Inputs:
+    # fileloc : location of b2mn.dat, b2.transport.*
+    # dsa : dsa from read_dsa (or whatever dx_sep to interpolate onto)
+    # geo : geometry dict from read_b2fgmtry 
+    # state : state dict from read_b2fstate
+    #
+    # Note, geo and state only used to get dimensions, only really need
+    # geo['ny'], state['ns']
+    
+    if dsa is None:
+        dsa = read_dsa('dsa')
+    
+    if geo is None:
+        geo = read_b2fgmtry('../baserun/b2fgmtry')
+
+    if state is None:
+        state = read_b2fstate('b2fstate')
+        
+    read_inputfile = False
+    if force_read_inpufile:
+        read_inputfile = True
+
+    # Read b2mn.dat unless overridden by input argument
+    if not read_inputfile:
+        b2mn = scrape_b2mn("b2mn.dat")
+        if ("b2tqna_inputfile" in b2mn.keys()):
+            if b2mn["b2tqna_inputfile"] == 1:
+                read_inputfile = True
+
+    # Initialize variables we want defined. The final arrays will have
+    # a dimension [ny+2] but b2.transport.inputfile may not!
+    dn = np.zeros((geo['ny']+2,state['ns']))
+    dp = np.zeros((geo['ny']+2,state['ns']))
+    chii = np.zeros((geo['ny']+2,state['ns']))
+    chie = np.zeros(geo['ny']+2)
+    vlax = np.zeros((geo['ny']+2,state['ns']))
+    vlay = np.zeros((geo['ny']+2,state['ns']))
+    vsa = np.zeros((geo['ny']+2,state['ns']))
+    sig = np.zeros(geo['ny']+2)
+    alf = np.zeros(geo['ny']+2)    
+
+    try:
+        import f90nml
+        parser = f90nml.Parser()
+        parser.global_start_index=1
+    except:
+        print('f90nml required to read transport input files!')
+        return None
+    
+    try:
+        nml = parser.read('b2.transport.parameters')
+        this = nml['transport']['parm_dna']
+        for ispec in range(len(this)):
+            dn[:,ispec] = this[ispec]
+    except:
+        pass
+    
+    if read_inputfile:
+        try:
+            nml = parser.read('b2.transport.inputfile')
+            tdata = nml['transport']['tdata']
+            nS = len(tdata)
+            for ispec in range(nS):
+                nKinds = len(tdata[ispec])
+                for jkind in range(nKinds):
+                    this = tdata[ispec][jkind]
+
+                    # Check if this kind was filled with none by f90nml (not defined)
+                    test = [i[1] for i in this]
+                    if all(val is None for val in test):
+                        continue
+                    
+                    # Read and interpolate back on dsa
+                    xRaw = [i[0] for i in this] 
+                    yRaw = [i[1] for i in this]
+                    yInterp = np.interp(dsa,xRaw,yRaw)
+                    
+                    if jkind+1 == 1:
+                        dn[:,ispec] = yInterp
+                    elif jkind+1 == 2:
+                        dp[:,ispec] = yInterp
+                    elif jkind+1 == 3:
+                        chii[:,ispec] = yInterp
+                    elif jkind+1 == 4:
+                        chie[:] = yInterp
+                    elif jkind+1 == 5:
+                        vlax[:,ispec] = yInterp                        
+                    elif jkind+1 == 6:
+                        vlay[:,ispec] = yInterp                        
+                    elif jkind+1 == 7:
+                        vsa[:,ispec] = yInterp                        
+                    elif jkind+1 == 8:
+                        sig[:] = yInterp                        
+                    elif jkind+1 == 9:
+                        alf[:] = yInterp                        
+                    
+        except:
+            pass
+        
+        
+    return dict(dn=dn, dp=dp, chii=chii, chie=chie, vlax=vlax, vlay=vlay, vsa=vsa, sig=sig, alf=alf)

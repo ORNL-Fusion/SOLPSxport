@@ -81,13 +81,15 @@ plt.rcParams.update({'mathtext.default': 'regular'})
 def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          profiles_fileloc=None, shotnum=None, ptimeid=None, prunid=None,
          nefit='tanh', tefit='tanh', ncfit='spl', chii_eq_chie = False,  # ti_eq_te = False,
-         Dn_min=0.001, vrc_mag=0.0, ti_decay_len=0.015, Dn_max=200,
+         Dn_min=0.001, vrc_mag=0.0, Dn_max=200,
          chie_use_grad = False, chii_use_grad = False, new_b2xportparams = True,
          chie_min = 0.01, chii_min = 0.01, chie_max = 400, chii_max = 400,
          reduce_Ti_fileloc = None, update_old_last10s = False,
          fractional_change = 1, exp_prof_rad_shift = 0, ti_fileloc = None,
          impurity_list = ['c'], use_existing_last10=False, plot_xport_coeffs=True,
-         plotall=False, verbose=False, figblock=False):
+         plotall=False, verbose=False, figblock=False, plot_older=False,
+         ti_decay_len=0.015, te_decay_len = None, ne_decay_len = None,
+         ti_decay_min=1, te_decay_min = 1, ne_decay_min = 1e18):
     """
     Driver for the code, returns an object of class 'SOLPSxport'
 
@@ -109,6 +111,12 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                         (leave zero unless you also change the function within calcXportCoeffs)
       ti_decay_len      Decay length (at the outboard midplane) for imposed exponential falloff
                         for experimental Ti, beginning at separatrix
+      te_decay_len: ""
+      ne_decay_len: ""
+      ti_decay_min: far-SOL Ti to decay to (eV)
+      te_decay_min: far-SOL Te to decay to (eV)
+      ne_decay_min: far-SOL ne to decay to (m^-3)
+
                         (since we know Ti measurement from CER is incorrect in SOL)
       chie/i_use_grad   Use ratio of the gradients for new values of chi_e/i, rather than fluxes
       new_b2xportparams Produces updated b2.transport.parameters so that D, X are set in PFR to match first
@@ -163,9 +171,24 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
 
     print("Initializing SOLPSxport")
     xp = sxp.SOLPSxport(workdir=os.getcwd(), gfile_loc=gfile_loc, impurity_list=impurity_list)
+
+    print("Reading SOLPS output")
+    try:
+        dsa = sut.read_dsa("dsa")
+        b2mn = sut.scrape_b2mn("b2mn.dat")        
+        geo = sut.read_b2fgmtry("../baserun/b2fgmtry")
+        state = sut.read_b2fstate("b2fstate")
+        xport = sut.read_transport_files(".", dsa=dsa, geo=geo, state=state)
+    except:
+        dsa = None
+        b2mn = None
+        geo = None
+        state = None
+        xport = None
+        
     print("Running calcPsiVals")
     try:
-        xp.calcPsiVals(plotit=plotall)
+        xp.calcPsiVals(plotit=plotall,geo=geo,b2mn=b2mn,dsa=dsa)
     except Exception as err:
         print('Exiting from SOLPSxport_dr\n')
         sys.exit(err)
@@ -195,18 +218,20 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
         xp.load_ti(ti_fileloc=ti_fileloc, verbose=True)
 
     print("Getting flux profiles")
-    xp.getSOLPSfluxProfs(plotit=plotall)
+    xp.getSOLPSfluxProfs(plotit=plotall,dsa=dsa,b2mn=b2mn,geo=geo,state=state,xport=xport)
 
     if impurity_list:
         print("Running getSOLPSCarbonProfs")
-        xp.getSOLPSCarbonProfs(plotit=plotall)
+        xp.getSOLPSCarbonProfs(plotit=plotall,dsa=dsa,b2mn=b2mn,geo=geo,state=state,xport=xport)
 
     print("Running calcXportCoeff")
     xp.calcXportCoef(plotit=plotall or plot_xport_coeffs, reduce_Ti_fileloc=reduce_Ti_fileloc, Dn_min=Dn_min,
-                     ti_decay_len=ti_decay_len, vrc_mag=vrc_mag, verbose=verbose, Dn_max=Dn_max,
+                     vrc_mag=vrc_mag, verbose=verbose, Dn_max=Dn_max,
                      fractional_change=fractional_change, exp_prof_rad_shift=exp_prof_rad_shift,
                      chii_min=chii_min, chii_max=chii_max, chie_min=chie_min, chie_max=chie_max,
-                     chii_eq_chie=chii_eq_chie, figblock=figblock,
+                     chii_eq_chie=chii_eq_chie, figblock=figblock, plot_older=plot_older,
+                     ti_decay_len=ti_decay_len, te_decay_len=te_decay_len, ne_decay_len=ne_decay_len,
+                     ti_decay_min=ti_decay_min, te_decay_min=te_decay_min, ne_decay_min=ne_decay_min,
                      plot_gradient_method=(chii_use_grad or chie_use_grad))
 
     print("Writing to: " + new_filename)
@@ -256,8 +281,8 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
         print("Ti_sep SOLPS: %.3f (eV)"%interp_ti_solps(1.0))
 
     if update_old_last10s:
-        update_old_last10_files()
-        
+        update_old_last10_files()        
+
     return xp
 
 # --- Launch main() ----------------------------------------------------------------------
