@@ -11,7 +11,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-from scipy.interpolate import interp1d
+from scipy import interpolate
 
 import SOLPSutils as sut
 
@@ -25,15 +25,12 @@ eV = 1.60217662e-19
 
 class SOLPSxport:
 
-    def __init__(self, workdir, gfile_loc, impurity_list = ['c'], b2plot_dev_x11 = False):
+    def __init__(self, workdir, gfile_loc, impurity_list=['c']):
         """
-        Make sure you source setup.csh or setup.ksh before running any of this!
-        
         Inputs:
           workdir         Directory with the SOLPS outputs
           gfile_loc       location of corresponding g file
           impurity_list   List of all the impurity species included in the plasma simulation
-          b2plot_dev_x11  Set to True if you want a figure to pop up for every b2plot call
         """
 
         # Try parsing gfile name
@@ -48,18 +45,15 @@ class SOLPSxport:
                 workdir_short = workdir[shot_ind_in_workdir:]
         except:
             pass
-        
+
+        self.b2plot_ready = False
+        if 'B2PLOT_DEV' in os.environ.keys():
+            if os.environ['B2PLOT_DEV'] == 'ps':
+                self.b2plot_ready = True
+
         self.data = {'workdir':workdir, 'workdir_short':workdir_short, 'gfile_loc': gfile_loc,
                      'expData':{'fitProfs':{}}, 'solpsData':{'profiles':{}},
                      'impurities':[imp.lower() for imp in impurity_list], 'shot':shot}
-
-        if 'B2PLOT_DEV' in os.environ.keys():
-            if (not b2plot_dev_x11) and os.environ['B2PLOT_DEV'] == 'x11 ps':
-                print("Changing environment variable B2PLOT_DEV to 'ps' for B2plot calls")
-                os.environ['B2PLOT_DEV'] = 'ps'
-        else:
-            print('WARNING: Need to source setup.csh for SOLPS-ITER distribution for complete SOLPSxport workflow')
-
         self.timeid = None
 
     # ----------------------------------------------------------------------------------------        
@@ -335,7 +329,7 @@ class SOLPSxport:
         if ncmod == 'spl':
             zfzpsi = self.data['expData']['fitVals']['zfz1splpsi']['x']
             zfzprof = self.data['expData']['fitVals']['zfz1splpsi']['y']
-            zfzfunc = interp1d(zfzpsi, zfzprof, bounds_error = False,
+            zfzfunc = interpolate.interp1d(zfzpsi, zfzprof, bounds_error = False,
                                fill_value = zfzprof[np.argmax(zfzpsi)])
             # extrapolate to psin>1 using highest value of psin available
         
@@ -593,10 +587,8 @@ class SOLPSxport:
         self.data['expData']['fitProfs']['ne_mod_psi'] = xrad
         self.data['expData']['fitProfs']['ne_mod'] = ne_mod
 
-
     # ----------------------------------------------------------------------------------------
 
-    
     def enforce_decay_length(self, prof_choice, sol_points = None, max_psin = 1.1, decay_length = 0.015,
                              rad_loc_for_exp_decay = 1.0, min_val = 1, plotit = False):
         """
@@ -674,7 +666,7 @@ class SOLPSxport:
             self.data['expData']['fitPsiProf'] = psiProf
             vals_interp = {}
             for fit in profs:
-                fitfunc = interp1d(psin[fit], vals[fit])
+                fitfunc = interpolate.interp1d(psin[fit], vals[fit])
                 vals_interp[fit] = fitfunc(psiProf)
             
             if plotit:
@@ -691,15 +683,12 @@ class SOLPSxport:
 
     # ----------------------------------------------------------------------------------------
 
-    def calcPsiVals(self, plotit = False, dsa = None, b2mn = None, geo = None):
+    def calcPsiVals(self, plotit = False, dsa = None, b2mn = None, geo = None, verbose=True):
         """
         Call b2plot to get the locations of each grid cell in psin space
 
         Saves the values to dictionaries in self.data['solpsData']
-        """
-        from scipy import interpolate
 
-        """
         Find grid corners first:
           0: lower left
           1: lower right
@@ -717,13 +706,14 @@ class SOLPSxport:
         writ = write b2plot.write file
         f.y = plot against y
         """
+
         wdir = self.data['workdir']
 
         try:
             if dsa is None:
-                dsa = read_dsa('dsa')
+                dsa = sut.read_dsa('dsa')
             if geo is None:
-                geo = read_b2fgmtry('../baserun/b2fgmtry')
+                geo = sut.read_b2fgmtry('../baserun/b2fgmtry')
             if b2mn is None:
                 b2mn = sut.scrape_b2mn("b2mn.dat")                
 
@@ -732,6 +722,12 @@ class SOLPSxport:
             czLowerLeft = geo['cry'][b2mn['jxa']+1,:,0]
             czUpperLeft = geo['cry'][b2mn['jxa']+1,:,2]               
         except:
+            if verbose:
+                print('  Failed to read geometry files directly, trying b2plot')
+            if not self.b2plot_ready:
+                sut.set_b2plot_dev(verbose=verbose)
+                self.b2plot_ready = True
+
             try:
                 dsa, crLowerLeft = sut.B2pl('0 crx writ jxa f.y', wdir = wdir)
             except Exception as err:
@@ -824,9 +820,9 @@ class SOLPSxport:
 
         try:
             if dsa is None:
-                dsa = read_dsa('dsa')
+                dsa = sut.read_dsa('dsa')
             if geo is None:
-                geo = read_b2fgmtry('../baserun/b2fgmtry')
+                geo = sut.read_b2fgmtry('../baserun/b2fgmtry')
             if b2mn is None:
                 b2mn = sut.scrape_b2mn("b2mn.dat")                
             if state is None:
@@ -847,7 +843,12 @@ class SOLPSxport:
             qi = sut.avg_like_b2plot(state['fhi'][b2mn['jxa']+1,:,1])/sy
             x_fTot = dsa
         except:
-            print('Falling back to b2plot calls')
+            print('  Falling back to b2plot calls to get fluxes')
+
+            if not self.b2plot_ready:
+                sut.set_b2plot_dev()
+                self.b2plot_ready = True
+
             # x variable is identical for all of these
             x_fTot, fluxTot = sut.B2pl("fnay za m* 0 0 sumz sy m/ writ jxa f.y")
             x_fTot, fluxD = sut.B2pl("fnay 1 zsel sy m/ writ jxa f.y")
@@ -869,7 +870,6 @@ class SOLPSxport:
         self.data['solpsData']['profiles']['na'] = np.array(na)
         self.data['solpsData']['profiles']['qe'] = np.array(qe)
         self.data['solpsData']['profiles']['qi'] = np.array(qi)
-
 
         if plotit:
                 
@@ -908,9 +908,9 @@ class SOLPSxport:
         """
         try:
             if dsa is None:
-                dsa = read_dsa('dsa')
+                dsa = sut.read_dsa('dsa')
             if geo is None:
-                geo = read_b2fgmtry('../baserun/b2fgmtry')
+                geo = sut.read_b2fgmtry('../baserun/b2fgmtry')
             if b2mn is None:
                 b2mn = sut.scrape_b2mn("b2mn.dat")                
             if state is None:
@@ -926,7 +926,12 @@ class SOLPSxport:
             vr_carbon = sut.avg_like_b2plot(xport['vlay'][:,8])/sy
 
         except:
-            print('Falling back to b2plot')
+            print('  Falling back to b2plot to get carbon fluxes')
+
+            if not self.b2plot_ready:
+                sut.set_b2plot_dev()
+                self.b2plot_ready = True
+
             x_nc, nc_solps = sut.B2pl("na 8 zsel writ jxa f.y")
             dummy, nd_solps = sut.B2pl("na 1 zsel writ jxa f.y")
             dummy, flux_carbon = sut.B2pl("fnay 8 zsel psy writ jxa f.y")  # x variables are the same JDL: use Z here?
@@ -1043,7 +1048,7 @@ class SOLPSxport:
         qe = self.data['solpsData']['profiles']['qe']
         qi = self.data['solpsData']['profiles']['qi']
         
-        psi_to_dsa_func = interp1d(psi_solps, dsa, fill_value = 'extrapolate')
+        psi_to_dsa_func = interpolate.interp1d(psi_solps, dsa, fill_value = 'extrapolate')
 
         # Convective portion of heat flux to be subtracted to get diffusive component
         # These are not actually used with the way it's coded now
@@ -1071,7 +1076,7 @@ class SOLPSxport:
         gnold = np.gradient(neold) / np.gradient(dsa)  # Only used for dnew_ratio
         gnexp = np.gradient(neexp) / np.gradient(dsa_neprofile)
 
-        gnexp_dsafunc = interp1d(dsa_neprofile, gnexp, kind='linear', fill_value = 'extrapolate')
+        gnexp_dsafunc = interpolate.interp1d(dsa_neprofile, gnexp, kind='linear', fill_value = 'extrapolate')
         gnexp_solpslocs = gnexp_dsafunc(dsa)
         
         # psi_to_dsa_func function only valid in SOLPS range,
@@ -1079,7 +1084,7 @@ class SOLPSxport:
         gnexp_solpslocs_dsa = gnexp_dsafunc(dsa)
 
         # Set boundary condition to get ne[-1] right
-        expden_dsa_func = interp1d(dsa_neprofile, neexp, fill_value = 'extrapolate')
+        expden_dsa_func = interpolate.interp1d(dsa_neprofile, neexp, fill_value = 'extrapolate')
 
         ne_decay_len_end = (expden_dsa_func(dsa[-2]) - expden_dsa_func(dsa[-1])) / \
             np.mean([expden_dsa_func(dsa[-1]), expden_dsa_func(dsa[-2])])
@@ -1119,11 +1124,11 @@ class SOLPSxport:
         gteold = np.gradient(teold) / np.gradient(dsa)
         gteexp = np.gradient(teexp) / np.gradient(dsa_teprofile)
 
-        gteexp_dsafunc = interp1d(dsa_teprofile, gteexp, kind='linear', fill_value = 'extrapolate')
+        gteexp_dsafunc = interpolate.interp1d(dsa_teprofile, gteexp, kind='linear', fill_value = 'extrapolate')
         gteexp_solpslocs = gteexp_dsafunc(dsa)
                 
         # Set boundary condition to get Te[-1] right
-        expTe_dsa_func = interp1d(dsa_teprofile, teexp, fill_value = 'extrapolate')
+        expTe_dsa_func = interpolate.interp1d(dsa_teprofile, teexp, fill_value = 'extrapolate')
         te_decay_len_end = (expTe_dsa_func(dsa[-2]) - expTe_dsa_func(dsa[-1])) / \
             np.mean([expTe_dsa_func(dsa[-1]), expTe_dsa_func(dsa[-2])])
             
@@ -1161,11 +1166,11 @@ class SOLPSxport:
         gtiold = np.gradient(tiold) / np.gradient(dsa)
         gtiexp = np.gradient(tiexp) / np.gradient(dsa_tiprofile)
         
-        gtiexp_dsafunc = interp1d(dsa_tiprofile, gtiexp, kind='linear', fill_value = 'extrapolate')
+        gtiexp_dsafunc = interpolate.interp1d(dsa_tiprofile, gtiexp, kind='linear', fill_value = 'extrapolate')
         gtiexp_solpslocs = gtiexp_dsafunc(dsa)
         
         # Set boundary condition to get Ti[-1] right
-        expTi_dsa_func = interp1d(dsa_tiprofile, tiexp, fill_value = 'extrapolate')
+        expTi_dsa_func = interpolate.interp1d(dsa_tiprofile, tiexp, fill_value = 'extrapolate')
         if ti_decay_len is not None:
             gtiexp_solpslocs[-1] = -expTi_dsa_func(dsa[-1]) / ti_decay_len    
         

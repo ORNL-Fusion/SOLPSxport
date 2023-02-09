@@ -7,7 +7,7 @@ I've left those routines below but commented them out and given a good replaceme
 A. Sontag, R.S. Wilcox, J.D. Lore 2019-2023
 """
 
-from os import path, system, rename
+from os import path, system, rename, environ
 import numpy as np
 
 
@@ -513,57 +513,65 @@ def read_b2_transport_inputfile(infileloc, carbon=True):
         return {'rn': rn, 'dn': dn, 'ki': ki, 'ke': ke}
 
 # ----------------------------------------------------------------------------------------
-def scrape_b2mn(fname):
+
+
+def scrape_b2mn(fname = 'b2mn.dat'):
     b2mn = {}
     if not path.exists(fname):
         print('ERROR: b2mn.dat file not found:',fname)
         return b2mn
     
     with open(fname, 'r') as f:
-        for i, line in enumerate(f):
-            sline = line.strip()
-            if len(line) <= 1:
-                continue
-            if line.strip()[0] == "#" or sline[0] == "*":
-                continue
+        lines = f.readlines()
+
+    for i, line in enumerate(lines):
+        sline = line.strip()
+        if len(line) <= 1:
+            continue
+        if sline[0] == "#" or sline[0] == "*":
+            continue
+        else:
+            count_quotes = 0
+            quote_pos = []
+            for i, c in enumerate(sline):
+                if c == "'":
+                    count_quotes = count_quotes + 1
+                    quote_pos.append(i)
+            # count_quotes = sline.count("'")
+            if count_quotes == 2:
+                # For cases where variable is enclosed in single quotes but value is not: 'b2mwti_jxa'
+                thisvar = sline[quote_pos[0]+1:quote_pos[1]]
+                this = sline[quote_pos[1]+1:-1]
             else:
-                count_quotes = 0
-                quote_pos = []
-                for i,c in enumerate(sline):
-                    if c == "'":
-                        count_quotes = count_quotes + 1
-                        quote_pos.append(i)
-                if count_quotes == 2:
-                    # For cases where variable is enclosed in single quotes but value is not: 'b2mwti_jxa'                       
-                    thisvar = sline[quote_pos[0]+1:quote_pos[1]]
-                    this = sline[quote_pos[1]+1:-1]
-                else:
-                    # Typically this is for 4 single quotes
-                    # For cases where both variable and value are enclosed in single quotes: 'b2mwti_jxa'   '36'
-                    #
-                    # This can occur when some comment after the value has quotes in it
-                    # e.g., "'b2sicf_phm0'  '0.0'  Old value '1.0'"
-                    thisvar = sline[quote_pos[0]+1:quote_pos[1]]
-                    this = sline[quote_pos[2]+1:quote_pos[3]]
+                # Typically this is for 4 single quotes
+                # For cases where both variable and value are enclosed in single quotes: 'b2mwti_jxa'   '36'
+                #
+                # This can occur when some comment after the value has quotes in it
+                # e.g., "'b2sicf_phm0'  '0.0'  Old value '1.0'"
+                thisvar = sline[quote_pos[0]+1:quote_pos[1]]
+                this = sline[quote_pos[2]+1:quote_pos[3]]
 
 
-                if thisvar == "b2mwti_jxa":
-                    b2mn['jxa'] = int(this)
-                if thisvar == "b2tqna_inputfile":
-                    b2mn['b2tqna_inputfile'] = int(this)
+            if thisvar == "b2mwti_jxa":
+                b2mn['jxa'] = int(this)
+            if thisvar == "b2tqna_inputfile":
+                b2mn['b2tqna_inputfile'] = int(this)
 
     return b2mn
                     
 # ----------------------------------------------------------------------------------------
-def read_dsa(fname):
+def read_dsa(fname='dsa'):
     if not path.exists(fname):
         print('ERROR: b2fgmtry file not found:',fname)
         return None
 
     dsa = []
-    with open("dsa", 'r') as f:
-        for i,line in enumerate(f):
-            dsa.append(float(line.split()[0]))
+    with open(fname, 'r') as f:
+        lines = f.readlines()
+
+    for i,line in enumerate(lines):
+        dsa.append(float(line.split()[0]))
+
     return dsa
 # ----------------------------------------------------------------------------------------
 
@@ -574,47 +582,49 @@ def read_b2fgmtry(fname):
 
     data = []
     with open(fname, 'r') as f:
-        for i, line in enumerate(f):
+        lines = f.readlines()
 
-            # Special handling for first few lines
-            if i == 0:
-                version = line.split()[0][7:-1]
-                geo = {'version':version}
-                continue
-            elif i == 1:
-                continue
-            elif i == 2:
-                # Assume starts with nx,ny after version
-                geo['nx'] = int(line.split()[0])
-                geo['ny'] = int(line.split()[1])
-                numcells = (geo['nx']+2)*(geo['ny']+2)
-                continue
-            
-            if line.split()[0] == '*cf:':
-                vartype = line.split()[1]
-                varsize = int(line.split()[2])
-                varname = line.split()[3]
-                # Some variables have no entries depending on config
-                if varsize == 0:
-                    geo[varname] = None
-                data = []
+    for i, line in enumerate(lines):
+
+        # Special handling for first few lines
+        if i == 0:
+            version = line.split()[0][7:-1]
+            geo = {'version':version}
+            continue
+        elif i == 1:
+            continue
+        elif i == 2:
+            # Assume starts with nx,ny after version
+            geo['nx'] = int(line.split()[0])
+            geo['ny'] = int(line.split()[1])
+            numcells = (geo['nx']+2)*(geo['ny']+2)
+            continue
+
+        if line.split()[0] == '*cf:':
+            vartype = line.split()[1]
+            varsize = int(line.split()[2])
+            varname = line.split()[3]
+            # Some variables have no entries depending on config
+            if varsize == 0:
+                geo[varname] = None
+            data = []
+        else:
+            # Parse by type
+            if vartype == "char":
+                geo[varname] = line.strip()
             else:
-                # Parse by type
-                if vartype == "char":
-                    geo[varname] = line.strip()
-                else:
-                    splitline = line.split()
-                    for value in splitline:
-                        if vartype == "int":
-                            data.append(int(value))
-                        else:                            
-                            data.append(float(value))
-                        
-                    if len(data) == varsize:
-                        if varsize%numcells == 0:
-                            geo[varname] = np.array(data).reshape([geo['nx']+2,geo['ny']+2,int(varsize/numcells)], order = 'F')
-                        else:
-                            geo[varname] = np.array(data)
+                splitline = line.split()
+                for value in splitline:
+                    if vartype == "int":
+                        data.append(int(value))
+                    else:
+                        data.append(float(value))
+
+                if len(data) == varsize:
+                    if varsize%numcells == 0:
+                        geo[varname] = np.array(data).reshape([geo['nx']+2,geo['ny']+2,int(varsize/numcells)], order = 'F')
+                    else:
+                        geo[varname] = np.array(data)
 
     return geo
 
@@ -622,76 +632,78 @@ def read_b2fgmtry(fname):
 
 def read_b2fstate(fname):
     if not path.exists(fname):
-        print('ERROR: b2fstate file not found:',fname)
+        print('ERROR: b2fstate file not found: ',fname)
         return None
 
     DEBUG = False
 
     data = []
     with open(fname, 'r') as f:
-        for i, line in enumerate(f):
+        lines = f.readlines()
 
-            # Special handling for first few lines
-            if i == 0:
-                version = line.split()[0][7:-1]
-                state = {'version':version}
-                continue
-            elif i == 1:
-                continue
-            elif i == 2:
-                # Assume starts with nx,ny,ns after version
-                state['nx'] = int(line.split()[0])
-                state['ny'] = int(line.split()[1])
-                state['ns'] = int(line.split()[2])                
-                numcells = (state['nx']+2)*(state['ny']+2)
-                continue
-            
-            if line.split()[0] == '*cf:':
-                vartype = line.split()[1]
-                varsize = int(line.split()[2])
-                varname = line.split()[3]
-                if DEBUG:
-                    print(varname,vartype,varsize,state['nx'],state['ny'],state['ns'],numcells)
-                # Some variables have no entries depending on config
-                if varsize == 0:
-                    state[varname] = None
-                data = []
+    for i, line in enumerate(lines):
+
+        # Special handling for first few lines
+        if i == 0:
+            version = line.split()[0][7:-1]
+            state = {'version':version}
+            continue
+        elif i == 1:
+            continue
+        elif i == 2:
+            # Assume starts with nx,ny,ns after version
+            state['nx'] = int(line.split()[0])
+            state['ny'] = int(line.split()[1])
+            state['ns'] = int(line.split()[2])
+            numcells = (state['nx']+2)*(state['ny']+2)
+            continue
+
+        if line.split()[0] == '*cf:':
+            vartype = line.split()[1]
+            varsize = int(line.split()[2])
+            varname = line.split()[3]
+            if DEBUG:
+                print(varname,vartype,varsize,state['nx'],state['ny'],state['ns'],numcells)
+            # Some variables have no entries depending on config
+            if varsize == 0:
+                state[varname] = None
+            data = []
+        else:
+            # Parse by type
+            if vartype == "char":
+                state[varname] = line.strip()
             else:
-                # Parse by type
-                if vartype == "char":
-                    state[varname] = line.strip()
-                else:
-                    splitline = line.split()
-                    for value in splitline:
-                        if vartype == "int":
-                            data.append(int(value))
-                        else:                            
-                            data.append(float(value))
-                        
-                    if len(data) == varsize:
-                        if varsize == numcells:
-                            # This is a scalar quantity
-                            state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2], order = 'F')
-                        elif varsize == 2*numcells:
-                            # This is a flux quantity
-                            state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,2], order = 'F')
-                        elif varsize == numcells*state['ns']:
-                            # This is a scalar quantity by species
-                            state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,state['ns']], order = 'F')
-                        elif varsize == 2*numcells*state['ns']:
-                            # This is a flux quantity by species
-                            state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,2,state['ns']], order = 'F')
-                        elif varsize == 4*numcells:
-                            # This is a flux quantity in 3.1 format
-                            state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,2,2], order = 'F')
-                        elif varsize == 4*numcells*state['ns']:
-                            # This is a flux quantity by species in 3.1 format
-                            state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,2,2,state['ns']], order = 'F')
-                        elif varsize%numcells == 0:
-                                print("Warning, must have missed some dimension checks for variable:",varname)
-                        else:
-                            # For other dimensions assign as is (e.g., zamin)
-                            state[varname] = np.array(data)
+                splitline = line.split()
+                for value in splitline:
+                    if vartype == "int":
+                        data.append(int(value))
+                    else:
+                        data.append(float(value))
+
+                if len(data) == varsize:
+                    if varsize == numcells:
+                        # This is a scalar quantity
+                        state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2], order = 'F')
+                    elif varsize == 2*numcells:
+                        # This is a flux quantity
+                        state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,2], order = 'F')
+                    elif varsize == numcells*state['ns']:
+                        # This is a scalar quantity by species
+                        state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,state['ns']], order = 'F')
+                    elif varsize == 2*numcells*state['ns']:
+                        # This is a flux quantity by species
+                        state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,2,state['ns']], order = 'F')
+                    elif varsize == 4*numcells:
+                        # This is a flux quantity in 3.1 format
+                        state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,2,2], order = 'F')
+                    elif varsize == 4*numcells*state['ns']:
+                        # This is a flux quantity by species in 3.1 format
+                        state[varname] = np.array(data).reshape([state['nx']+2,state['ny']+2,2,2,state['ns']], order = 'F')
+                    elif varsize%numcells == 0:
+                            print("Warning, must have missed some dimension checks for variable:",varname)
+                    else:
+                        # For other dimensions assign as is (e.g., zamin)
+                        state[varname] = np.array(data)
     return state
 
 # ----------------------------------------------------------------------------------------
@@ -945,3 +957,17 @@ def read_transport_files(fileloc, dsa=None, geo=None, state=None, force_read_inp
         
         
     return dict(dn=dn, dp=dp, chii=chii, chie=chie, vlax=vlax, vlay=vlay, vsa=vsa, sig=sig, alf=alf)
+
+# ----------------------------------------------------------------------------------------
+
+
+def set_b2plot_dev(verbose = False):
+    if 'B2PLOT_DEV' in environ.keys():
+        if environ['B2PLOT_DEV'] == 'ps':
+            if verbose:
+                print('B2PLOT_DEV already set to ps')
+        else:
+            print("Changing environment variable B2PLOT_DEV to 'ps' for B2plot calls")
+            environ['B2PLOT_DEV'] = 'ps'
+    else:
+        print('WARNING: Need to source setup.csh for a SOLPS-ITER distribution to enable B2plot calls')

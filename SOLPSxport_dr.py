@@ -110,14 +110,12 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
       vrc_mag           Hard-coded carbon impurity pinch, for trying to match nC profiles
                         (leave zero unless you also change the function within calcXportCoeffs)
       ti_decay_len      Decay length (at the outboard midplane) for imposed exponential falloff
-                        for experimental Ti, beginning at separatrix
-      te_decay_len: ""
-      ne_decay_len: ""
-      ti_decay_min: far-SOL Ti to decay to (eV)
-      te_decay_min: far-SOL Te to decay to (eV)
-      ne_decay_min: far-SOL ne to decay to (m^-3)
-
-                        (since we know Ti measurement from CER is incorrect in SOL)
+                        for experimental Ti, beginning at separatrix (impurity CER is incorrect in SOL)
+      te_decay_len      ""
+      ne_decay_len      ""
+      ti_decay_min      far-SOL Ti to decay to (eV)
+      te_decay_min      far-SOL Te to decay to (eV)
+      ne_decay_min      far-SOL ne to decay to (m^-3)
       chie/i_use_grad   Use ratio of the gradients for new values of chi_e/i, rather than fluxes
       new_b2xportparams Produces updated b2.transport.parameters so that D, X are set in PFR to match first
                         radial cell of SOL (default is on)
@@ -127,7 +125,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                            with out-of-date SOLPS profiles
       reduce_Ti_fileloc Set to None to use T_D = T_C from MDS+ profile fit
                         *On GA clusters (Iris and Omega), example file is located here:
-                         '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt'
+                        '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt'
       update_old_last10s  Set to True to copy the last10 files to last10.old for comparison with the next iteration
       fractional_change Set to number smaller than 1 if the incremental change is too large and
                         you want to take a smaller step
@@ -180,6 +178,9 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
         state = sut.read_b2fstate("b2fstate")
         xport = sut.read_transport_files(".", dsa=dsa, geo=geo, state=state)
     except:
+        print('Failed to read output directly, will try using b2plot')
+        sut.set_b2plot_dev(verbose=verbose)
+        xp.b2plot_ready = True
         dsa = None
         b2mn = None
         geo = None
@@ -203,7 +204,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
             xp.populatePedFits(nemod=nefit, temod=tefit, ncmod=ncfit, npsi=250, plotit=plotall)
         else:
             print("ERROR: Need to provide eiter a profiles fileloc or MDSplus profile runid")
-            return
+            sys.exit()
     elif profiles_fileloc[-4:] == '.pkl':
         xp.loadProfDBPedFit(profiles_fileloc, shotnum, ptimeid, prunid, verbose=True)
         print("Populating PedFits")
