@@ -998,7 +998,7 @@ class SOLPSxport:
                       reduce_Ti_fileloc = None,
                       fractional_change = 1, exp_prof_rad_shift = 0, chii_eq_chie = False,
                       plot_gradient_method = False,
-                      use_ratio_bc = True, debug_plots = False, verbose = False, figblock = False,plot_older = False,
+                      use_ratio_bc = True, debug_plots = False, verbose = False, figblock = False,
                       ti_decay_len = 0.015, te_decay_len = None, ne_decay_len = None,
                       ti_decay_min = 1, te_decay_min = 1, ne_decay_min = 1e18):
         """
@@ -1016,7 +1016,7 @@ class SOLPSxport:
           ne_decay_min: far-SOL ne to decay to (m^-3)
           fractional_change: Set to number smaller than 1 if the incremental change is too large and
                              you want to take a half step or something different
-          exp_prof_rad_shift: Apply a radial shift to experimental profiles
+          exp_prof_rad_shift: Apply a radial shift to all experimental profiles
                               (in units of psi_n, positive shifts profiles outward so separatrix is hotter)
           reduce_Ti_fileloc: Location of a saved array to get the ratio between T_C (measured) and T_i
                         Example file on GA clusters for DIII-D, calculated from Shaun Haskey's T_D measurements
@@ -1058,18 +1058,16 @@ class SOLPSxport:
         
         # ne and Gamma_e
 
-        psi_data_fit = self.data['expData']['fitPsiProf'] + exp_prof_rad_shift  # JDL: Is this even used?
-
         if ne_decay_len is not None:
             print("Applying decay to ne profile")
             self.modify_ne(sol_points = 10, max_psin = np.max(psi_solps) + 0.001,
                            decay_length = ne_decay_len, rad_loc_for_exp_decay = 1.0,
                            ne_min = ne_decay_min, plotit = debug_plots)
             neexp = 1.0e20*self.data['expData']['fitProfs']['ne_mod']
-            neexppsi = self.data['expData']['fitProfs']['ne_mod_psi']
+            neexppsi = self.data['expData']['fitProfs']['ne_mod_psi'] + exp_prof_rad_shift
         else:
             neexp = 1.0e20 * self.data['expData']['fitProfs']['neprof']
-            neexppsi = self.data['expData']['fitPsiProf']        
+            neexppsi = self.data['expData']['fitPsiProf'] + exp_prof_rad_shift
 
         dsa_neprofile = psi_to_dsa_func(neexppsi)            
 
@@ -1114,10 +1112,10 @@ class SOLPSxport:
                            te_min = te_decay_min, plotit = debug_plots)
 
             teexp = 1.0e3*self.data['expData']['fitProfs']['te_mod']
-            teexppsi = self.data['expData']['fitProfs']['te_mod_psi']
+            teexppsi = self.data['expData']['fitProfs']['te_mod_psi'] + exp_prof_rad_shift
         else:
             teexp = 1.0e3 * self.data['expData']['fitProfs']['teprof']
-            teexppsi = self.data['expData']['fitPsiProf']
+            teexppsi = self.data['expData']['fitPsiProf'] + exp_prof_rad_shift
 
         dsa_teprofile = psi_to_dsa_func(teexppsi)
         
@@ -1155,11 +1153,11 @@ class SOLPSxport:
                            plotit = debug_plots, reduce_ti = (reduce_Ti_fileloc is not None), ti_min = ti_decay_min)
 
             tiexp = 1.0e3*self.data['expData']['fitProfs']['ti_mod']
-            tiexppsi = self.data['expData']['fitProfs']['ti_mod_psi']
+            tiexppsi = self.data['expData']['fitProfs']['ti_mod_psi'] + exp_prof_rad_shift
 
         else:
             tiexp = 1.0e3*self.data['expData']['fitProfs']['tiprof']
-            tiexppsi = self.data['expData']['fitProfs']['tipsi']
+            tiexppsi = self.data['expData']['fitProfs']['tipsi'] + exp_prof_rad_shift
         
         dsa_tiprofile = psi_to_dsa_func(tiexppsi)
         
@@ -1242,7 +1240,7 @@ class SOLPSxport:
                                                'kenew_ratio': kenew_ratio, 'kenew_flux':kenew_flux,
                                                'kinew_ratio': kinew_ratio, 'kinew_flux':kinew_flux,
                                                'vr_carbon': vr_carbon, 'D_carbon': D_carbon,
-                                               'limits': coef_limits}
+                                               'limits': coef_limits, 'exp_prof_shift': exp_prof_rad_shift}
         if plotit:
             self.plotXportCoef(figblock=figblock, plot_Ti = not chii_eq_chie,
                                plot_older=('ne_old' in self.data['solpsData']['last10'].keys()),
@@ -1325,28 +1323,28 @@ class SOLPSxport:
         kinew_flux = self.data['solpsData']['xportCoef']['kinew_flux']
         coef_limits = self.data['solpsData']['xportCoef']['limits']
 
-        psi_data_fit = self.data['expData']['fitPsiProf'] # JDL: Shift here??
+        exp_prof_shift = self.data['solpsData']['xportCoef']['exp_prof_shift']
         
         if 'te_mod' in self.data['expData']['fitProfs'].keys():            
             teexp = 1.0e3*self.data['expData']['fitProfs']['te_mod']
-            teexppsi = self.data['expData']['fitProfs']['te_mod_psi']
+            teexppsi = self.data['expData']['fitProfs']['te_mod_psi'] + exp_prof_shift
         else:
             teexp = 1.0e3 * self.data['expData']['fitProfs']['teprof']
-            teexppsi = self.data['expData']['fitPsiProf']
+            teexppsi = self.data['expData']['fitPsiProf'] + exp_prof_shift
 
         if 'ne_mod' in self.data['expData']['fitProfs'].keys():            
             neexp = 1.0e20*self.data['expData']['fitProfs']['ne_mod']
-            neexppsi = self.data['expData']['fitProfs']['ne_mod_psi']
+            neexppsi = self.data['expData']['fitProfs']['ne_mod_psi'] + exp_prof_shift
         else:
             neexp = 1.0e20*self.data['expData']['fitProfs']['neprof']      
-            neexppsi = self.data['expData']['fitPsiProf']            
+            neexppsi = self.data['expData']['fitPsiProf'] + exp_prof_shift
 
         if 'ti_mod' in self.data['expData']['fitProfs'].keys():
             tiexp = 1.0e3*self.data['expData']['fitProfs']['ti_mod']
-            tiexppsi = self.data['expData']['fitProfs']['ti_mod_psi']
+            tiexppsi = self.data['expData']['fitProfs']['ti_mod_psi'] + exp_prof_shift
         else:
             tiexp = 1.0e3*self.data['expData']['fitProfs']['tiprof']            
-            tiexppsi = self.data['expData']['fitProfs']['tipsi']
+            tiexppsi = self.data['expData']['fitProfs']['tipsi'] + exp_prof_shift
 
         psi_solps = self.data['solpsData']['psiSOLPS']
         neold = self.data['solpsData']['last10']['ne']
@@ -1393,7 +1391,7 @@ class SOLPSxport:
         f, ax = plt.subplots(2, nplots, sharex = 'all', figsize=figsize)
         if plot_older:
             ax[0, 0].plot(psi_solps, neolder / 1.0e19, '--g', lw = 1, label = 'previous SOLPS')
-        ax[0, 0].plot(psi_data_fit, neexp / 1.0e19, '--bo', lw = 1, label = 'Exp. data')
+        ax[0, 0].plot(neexppsi, neexp / 1.0e19, '--bo', lw = 1, label = 'Exp. data')
         ax[0, 0].plot(psi_solps, neold / 1.0e19, '-xr', lw = 2, label = 'SOLPS')
         ax[0, 0].set_ylabel('n$_e$ (10$^{19}$ m$^{-3}$)')
         ax[0, 0].legend(loc = 'best', fontsize=12)
@@ -1414,7 +1412,7 @@ class SOLPSxport:
         ax[1, 0].set_xlabel('$\psi_N$')
         ax[1, 0].set_ylim([min_dn/np.sqrt(headroom), max_dn*headroom])
         ax[1, 0].grid('on')
-        ax[0, 1].plot(psi_data_fit, teexp / 1.0e3, '--bo', lw = 1, label = 'Exp. Data')
+        ax[0, 1].plot(teexppsi, teexp / 1.0e3, '--bo', lw = 1, label = 'Exp. Data')
 
         if plot_older:
             ax[0, 1].plot(psi_solps, teolder / 1.0e3, '--g', lw = 1, label = 'SOLPS old')
@@ -1490,11 +1488,11 @@ class SOLPSxport:
         
         # Load experimental profiles
 
-        psi_data_fit = self.data['expData']['fitPsiProf'] # JDL need shift here?
+        psi_TSfit = self.data['expData']['fitPsiProf'] + self.data['solpsData']['xportCoef']['exp_prof_shift']
         nefit = 1.0e20 * self.data['expData']['fitProfs']['neprof']
         tefit = self.data['expData']['fitProfs']['teprof']
         tifit = self.data['expData']['fitProfs']['tiprof']
-        tifitpsi = self.data['expData']['fitProfs']['tipsi']
+        tifitpsi = self.data['expData']['fitProfs']['tipsi'] + self.data['solpsData']['xportCoef']['exp_prof_shift']
 
         rawdat_keys = ['nedatpsi', 'tedatpsi']
         rawdat_scalars = [10, 1.0]  # ne saved as 10^20, we want 10^19
@@ -1505,8 +1503,8 @@ class SOLPSxport:
 
 
         # Find limits of Te, Ti for plots
-        Te_inds_in_range = np.where(tefitpsi > np.min(psi_solps))[0]
-        ne_inds_in_range = np.where(nefitpsi > np.min(psi_solps))[0]
+        Te_inds_in_range = np.where(psi_TSfit > np.min(psi_solps))[0]
+        ne_inds_in_range = np.where(psi_TSfit > np.min(psi_solps))[0]
         Ti_inds_in_range = np.where(tifitpsi > np.min(psi_solps))[0]
         max_ne = np.max([np.max(nesolps), np.max(nefit[ne_inds_in_range])]) / 1.0e19
         max_Te = np.max([np.max(tesolps), np.max(tefit[Te_inds_in_range])])
@@ -1526,7 +1524,7 @@ class SOLPSxport:
                        self.data['expData']['fitProfs']['ne_mod'],
                        '--k', lw=2, zorder=3, label = 'Experimental Fit')            
         else:
-            ax[0].plot(psi_data_fit, nefit / 1.0e19, '--k', lw=2, zorder=3, label='Experimental Fit')            
+            ax[0].plot(psi_TSfit, nefit / 1.0e19, '--k', lw=2, zorder=3, label='Experimental Fit')
         # ax[0].plot(psi_solps, nesolps / 1.0e19, 'xr', lw=2, mew=2, ms=10, label='SOLPS')
         ax[0].plot(psi_solps, nesolps / 1.0e19, '-r', lw=2, zorder=2, label='SOLPS')
         ax[0].set_ylabel('n$_e$ (10$^{19}$ m$^{-3}$)')
@@ -1537,7 +1535,7 @@ class SOLPSxport:
                        self.data['expData']['fitProfs']['te_mod'],
                        '--k', lw=2, zorder=3, label = 'Experimental Fit')
         else:
-            ax[1].plot(psi_data_fit, tefit, '--k', lw=2, zorder=3, label='Experimental Fit')
+            ax[1].plot(psi_TSfit, tefit, '--k', lw=2, zorder=3, label='Experimental Fit')
         # ax[1].plot(psi_solps, tesolps, 'xr', mew=2, ms=10, label='SOLPS')
         ax[1].plot(psi_solps, tesolps, '-r', lw=2, zorder=2, label='SOLPS')
         ax[1].set_ylabel('T$_e$ (keV)')
