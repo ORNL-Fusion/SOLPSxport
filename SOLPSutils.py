@@ -7,7 +7,7 @@ I've left those routines below but commented them out and given a good replaceme
 A. Sontag, R.S. Wilcox, J.D. Lore 2019-2023
 """
 
-from os import path, system, rename, environ
+from os import path, environ
 import numpy as np
 
 
@@ -384,7 +384,6 @@ def getProfDBPedFit(shotnum, timeid, runid, write_to_file=None):
             print("can't print to that file type yet, only .pkl")
 
     return profile_fits
-
 
 # ----------------------------------------------------------------------------------------
 

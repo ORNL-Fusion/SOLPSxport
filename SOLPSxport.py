@@ -1,9 +1,9 @@
 """
-This class is used by routines in 'SOLPS_match_upstream.py' to read experimental data,
+This class is used by routines in 'SOLPSxport_dr.py' to read experimental data,
 read SOLPS data, and then calculate the updated radial transport coefficients to attempt
 to match SOLPS to the experimental profiles
 
-R.S. Wilcox, J.M. Canik and J.D. Lore 2020
+R.S. Wilcox, J.M. Canik and J.D. Lore 2020-2023
 contact: wilcoxr@fusion.gat.com
 """
 
