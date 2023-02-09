@@ -995,9 +995,8 @@ class SOLPSxport:
     
     def calcXportCoef(self, plotit = True, Dn_min = 0.001, chie_min = 0.01, chii_min = 0.01,
                       Dn_max = 100, chie_max = 400, chii_max = 400, vrc_mag=0.0, 
-                      reduce_Ti_fileloc = None,
+                      reduce_Ti_fileloc = None, plot_gradient_method = False,
                       fractional_change = 1, exp_prof_rad_shift = 0, chii_eq_chie = False,
-                      plot_gradient_method = False,
                       use_ratio_bc = True, debug_plots = False, verbose = False, figblock = False,
                       ti_decay_len = 0.015, te_decay_len = None, ne_decay_len = None,
                       ti_decay_min = 1, te_decay_min = 1, ne_decay_min = 1e18):
@@ -1022,6 +1021,9 @@ class SOLPSxport:
                         Example file on GA clusters for DIII-D, calculated from Shaun Haskey's T_D measurements
                         for 171558 @ 3200 ms:
                         '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt'
+          use_ratio_bc: Modifies the transport coefficients at the final grid cell proportionally to the
+                        mismatch of the DC offset of the profile. Since these routines match the gradients
+                        everywhere, there needs to be some way to set the scalar offset of the profile for flux BC
           vrc_mag:      Magnetude of the carbon velocity pinch
                         (shape and position are still hard coded)
         """
@@ -1355,7 +1357,7 @@ class SOLPSxport:
         kiold = self.data['solpsData']['last10']['ki']
 
         # Check if last10.old profiles exist
-        if 'ne_old' in self.data['solpsData']['last10'].keys():
+        if plot_older and ('ne_old' in self.data['solpsData']['last10'].keys()):
             neolder = self.data['solpsData']['last10']['ne_old']
             dolder = self.data['solpsData']['last10']['dn_old']
             teolder = self.data['solpsData']['last10']['te_old']

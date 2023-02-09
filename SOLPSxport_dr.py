@@ -87,7 +87,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          reduce_Ti_fileloc = None, update_old_last10s = False,
          fractional_change = 1, exp_prof_rad_shift = 0, ti_fileloc = None,
          impurity_list = ['c'], use_existing_last10=False, plot_xport_coeffs=True,
-         plotall=False, verbose=False, figblock=False, plot_older=False,
+         plotall=False, verbose=False, figblock=False,
          ti_decay_len=0.015, te_decay_len = None, ne_decay_len = None,
          ti_decay_min=1, te_decay_min = 1, ne_decay_min = 1e18):
     """
@@ -230,7 +230,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                      vrc_mag=vrc_mag, verbose=verbose, Dn_max=Dn_max,
                      fractional_change=fractional_change, exp_prof_rad_shift=exp_prof_rad_shift,
                      chii_min=chii_min, chii_max=chii_max, chie_min=chie_min, chie_max=chie_max,
-                     chii_eq_chie=chii_eq_chie, figblock=figblock, plot_older=plot_older,
+                     chii_eq_chie=chii_eq_chie, figblock=figblock,
                      ti_decay_len=ti_decay_len, te_decay_len=te_decay_len, ne_decay_len=ne_decay_len,
                      ti_decay_min=ti_decay_min, te_decay_min=te_decay_min, ne_decay_min=ne_decay_min,
                      plot_gradient_method=(chii_use_grad or chie_use_grad))
