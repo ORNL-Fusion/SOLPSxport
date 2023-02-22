@@ -1046,7 +1046,6 @@ class SOLPSxport:
         fluxTot = self.data['solpsData']['profiles']['fluxTot']
         fluxD = self.data['solpsData']['profiles']['fluxD']
         fluxConv = self.data['solpsData']['profiles']['fluxConv']
-        # hy1 = self.data['solpsData']['profiles']['hy1']  # Not used here
         qe = self.data['solpsData']['profiles']['qe']
         qi = self.data['solpsData']['profiles']['qi']
         
@@ -1056,8 +1055,7 @@ class SOLPSxport:
         # These are not actually used with the way it's coded now
         # SOLPS_qe_conv = 2.5 * dold * teold * eV
         # SOLPS_qi_conv = 2.5 * dold * tiold * eV
-        
-        
+                
         # ne and Gamma_e
 
         if ne_decay_len is not None:
@@ -1078,6 +1076,9 @@ class SOLPSxport:
 
         gnexp_dsafunc = interpolate.interp1d(dsa_neprofile, gnexp, kind='linear', fill_value = 'extrapolate')
         gnexp_solpslocs = gnexp_dsafunc(dsa)
+        if (np.max(gnexp_solpslocs) > 0):
+            print("WARNING: Positive n gradient found at dsa =",dsa[np.argmax(gnexp_solpslocs)])
+            print("         Modify fits or min Dn value will be used here")
         
         # psi_to_dsa_func function only valid in SOLPS range,
         # so gnexp_dsafunc shouldn't be applied outside that
@@ -1126,6 +1127,9 @@ class SOLPSxport:
 
         gteexp_dsafunc = interpolate.interp1d(dsa_teprofile, gteexp, kind='linear', fill_value = 'extrapolate')
         gteexp_solpslocs = gteexp_dsafunc(dsa)
+        if (np.max(gteexp_solpslocs) > 0):
+            print("WARNING: Positive Te gradient found at dsa =",dsa[np.argmax(gteexp_solpslocs)])
+            print("         Modify fits or min chie value will be used here")
                 
         # Set boundary condition to get Te[-1] right
         expTe_dsa_func = interpolate.interp1d(dsa_teprofile, teexp, fill_value = 'extrapolate')
@@ -1168,7 +1172,10 @@ class SOLPSxport:
         
         gtiexp_dsafunc = interpolate.interp1d(dsa_tiprofile, gtiexp, kind='linear', fill_value = 'extrapolate')
         gtiexp_solpslocs = gtiexp_dsafunc(dsa)
-        
+        if (np.max(gtiexp_solpslocs) > 0):
+            print("WARNING: Positive Ti gradient found at dsa =",dsa[np.argmax(gtiexp_solpslocs)])
+            print("         Modify fits or min chii value will be used here")
+            
         # Set boundary condition to get Ti[-1] right
         expTi_dsa_func = interpolate.interp1d(dsa_tiprofile, tiexp, fill_value = 'extrapolate')
         if ti_decay_len is not None:
