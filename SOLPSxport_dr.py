@@ -277,14 +277,9 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
         interp_ti_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'],xp.data['solpsData']['last10']['ti'])
 
         print("\nUsing profile shift of: %.3e (in psiN)\n"%exp_prof_rad_shift)
-        print("ne_sep Expt:  %.3e (m^-3)"%(interp_ne_expt(1.0)*1e20))
-        print("ne_sep SOLPS: %.3e (m^-3)"%interp_ne_solps(1.0))
-
-        print("\nTe_sep Expt:  %.3f (eV)"%(interp_te_expt(1.0)*1000))
-        print("Te_sep SOLPS: %.3f (eV)"%interp_te_solps(1.0))
-
-        print("\nTi_sep Expt:  %.3f (eV)"%(interp_ti_expt(1.0)*1000))
-        print("Ti_sep SOLPS: %.3f (eV)"%interp_ti_solps(1.0))
+        print("ne_sep Expt:  %.3e "%(interp_ne_expt(1.0)*1e20),"SOLPS: %.3e (m^-3)"%interp_ne_solps(1.0))
+        print("Te_sep Expt:  %.3f "%(interp_te_expt(1.0)*1000),"  SOLPS: %.3f (eV)"%interp_te_solps(1.0))
+        print("Ti_sep Expt:  %.3f "%(interp_ti_expt(1.0)*1000),"  SOLPS: %.3f (eV)"%interp_ti_solps(1.0))
 
     if update_old_last10s:
         update_old_last10_files()        
