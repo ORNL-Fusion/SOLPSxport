@@ -70,8 +70,13 @@ class SOLPSxport:
         if working[-1] != '/': working += '/'
         # Call 2d_profiles as default, so you don't accidentally look at old time steps
         if (not use_existing_last10) or (not os.path.isfile(working + 'ne3da.last10')):
-            print("Calling '2d_profiles' in directory: " + working)
-            os.system('2d_profiles')
+            # Check to see if SOLPS has been sourced, skip this if not
+            if 'B2PLOT_DEV' in os.environ.keys():
+                print("Calling '2d_profiles' in directory: " + working)
+                os.system('2d_profiles')
+
+        if not os.path.isfile('ne3da.last10'):
+            raise Exception('ERROR: Need to write to run.log and call "2d_profiles" first')
 
         rx, ne_ = sut.readProf('ne3da.last10')
         rx, dn_ = sut.readProf('dn3da.last10')

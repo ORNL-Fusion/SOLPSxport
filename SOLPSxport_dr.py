@@ -9,7 +9,12 @@ provided. It does this through the generation of an object of class 'SOLPSxport'
 The routine "main" runs the sequence in the correct order and returns
 the SOLPSxport object for additional plotting and debugging if necessary
 
-**So far this is only coded for cases with D or D+C, no other impurities will work yet**
+Note: This algorithm attempts to match the SOLPS profile gradients to the
+experimental gradients, but the absolute values will not necessarily
+match if core flux boundary conditions are used (which they should be!)
+and the experimental profiles do not diminish to zero at the grid boundary.
+
+**So far this is only tested for cases with D or D+C, cases with other impurities may not work yet**
 
 
 Instructions for command line call:
@@ -85,7 +90,7 @@ plt.rcParams.update({'mathtext.default': 'regular'})
 
 def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          profiles_fileloc=None, shotnum=None, ptimeid=None, prunid=None,
-         nefit='tanh', tefit='tanh', ncfit='spl', chii_eq_chie = False,  # ti_eq_te = False,
+         nefit='tanh', tefit='tanh', ncfit='spl', chii_eq_chie = False, ti_eq_te = False,
          Dn_min=0.001, vrc_mag=0.0, Dn_max=200,
          chie_use_grad = False, chii_use_grad = False, new_b2xportparams = True,
          chie_min = 0.01, chii_min = 0.01, chie_max = 400, chii_max = 400,
@@ -108,7 +113,8 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
       shotnum,ptimeid,prunid  Profile identifying shot number, timeid and runid (from Tom's tools)
                         (this is uneccessary if you have a .pkl file given in profiles_fileloc)
       xxfit             Fit function used in each profile fit (xx => ne, te and nc)
-      chii_eq_chie      Set to True to ignore Ti profile and just set chi_i = chi_e (not implemented yet!!)
+      chii_eq_chie      Set to True to ignore Ti profile and just set chi_i = chi_e
+      ti_eq_te          Set to True to set Ti = Te (will override any other modifications to Ti or chi_i)
       Dn_min            Set a floor for the allowable particle diffusion coefficient
       Dn_max            Set a maximum for the allowable particle diffusion coefficient
       chie_max          Set a maximum for the allowable electron energy diffusion coefficient
@@ -223,6 +229,11 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
     if ti_fileloc:
         xp.load_ti(ti_fileloc=ti_fileloc, verbose=True)
 
+    if ti_eq_te:
+        print("** Forcing Ti = Te **")
+        xp.data['expData']['fitProfs']['tipsi'] = xp.data['expData']['fitPsiProf']
+        xp.data['expData']['fitProfs']['tiprof'] = xp.data['expData']['fitProfs']['teprof']
+
     print("Getting flux profiles")
     xp.getSOLPSfluxProfs(plotit=plotall,dsa=dsa,b2mn=b2mn,geo=geo,state=state,xport=xport)
 
@@ -313,6 +324,7 @@ if __name__ == '__main__':
         # parser.set_defaults(chie_use_grad=False)
         parser.add_argument('--chii_use_grad', action='store_true', default=False)
         # parser.set_defaults(chii_use_grad=True)
+        parser.add_argument('--ti_eq_te', action='store_true', default=False)
 
     args = parser.parse_args()
 
@@ -320,10 +332,11 @@ if __name__ == '__main__':
         args.chii_eq_chie = False
         args.chie_use_grad = False
         args.chii_use_grad = False
+        args.ti_eq_te = False
 
     _ = main(gfile_loc=args.gfileloc, profiles_fileloc=args.profilesloc,
              shotnum=args.shotnum, ptimeid=args.timeid, prunid=args.runid,
-             ti_fileloc=args.tdfileloc,
+             ti_fileloc=args.tdfileloc, ti_eq_te=args.ti_eq_te,
              chii_eq_chie=args.chii_eq_chie, chie_use_grad=args.chie_use_grad, chii_use_grad=args.chii_use_grad,
              reduce_Ti_fileloc=args.tiratiofile, fractional_change=args.fractional_change, figblock=True)
 
