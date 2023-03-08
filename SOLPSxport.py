@@ -722,6 +722,10 @@ class SOLPSxport:
             if b2mn is None:
                 b2mn = sut.scrape_b2mn("b2mn.dat")                
 
+            # todo: add guess of jxa based on topology
+            if not "jxa" in b2mn.keys():
+                print('Warning: jxa not set in b2mn.dat! Will cause errors!')
+
             crLowerLeft = geo['crx'][b2mn['jxa']+1,:,0]
             crUpperLeft = geo['crx'][b2mn['jxa']+1,:,2]
             czLowerLeft = geo['cry'][b2mn['jxa']+1,:,0]
