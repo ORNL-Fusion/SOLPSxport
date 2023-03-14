@@ -792,7 +792,7 @@ class SOLPSxport:
             psin_masked = np.ma.masked_invalid(psiN_copy)
 
             plt.figure()
-            plt.contourf(gR, gZ, psin_masked, levels=[psiN_range[0], 1, psiN_range[1]], colors = [])
+            plt.contourf(gR, gZ, psin_masked, levels=[psiN_range[0], 1, psiN_range[1]], colors = ['b', 'b'])
             # plt.pcolormesh(gR, gZ, psin_masked, cmap = 'inferno')
             # plt.colorbar(ticks = [0.25,0.5,0.75,1])
             plt.plot(g['rlim'], g['zlim'], 'k', lw = 2)

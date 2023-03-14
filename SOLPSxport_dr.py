@@ -283,14 +283,14 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
         interp_te_expt = interpolate.interp1d(xp.data['expData']['fitPsiProf'],xp.data['expData']['fitProfs']['teprof'],kind='linear')
         interp_ti_expt = interpolate.interp1d(xp.data['expData']['fitProfs']['tipsi'],xp.data['expData']['fitProfs']['tiprof'],kind='linear')
 
-        interp_ne_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'],xp.data['solpsData']['last10']['ne'])
-        interp_te_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'],xp.data['solpsData']['last10']['te'])
-        interp_ti_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'],xp.data['solpsData']['last10']['ti'])
+        interp_ne_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'], xp.data['solpsData']['last10']['ne'])
+        interp_te_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'], xp.data['solpsData']['last10']['te'])
+        interp_ti_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'], xp.data['solpsData']['last10']['ti'])
 
         print("\nUsing profile shift of: %.3e (in psiN)\n"%exp_prof_rad_shift)
         print("        ne_sep (m^-3)   Te_sep (eV)   Ti_sep (eV)")
         print("Expt:    {:.3e}       {:6.2f}        {:6.2f}".format(interp_ne_expt(1.0)*1e20, interp_te_expt(1.0)*1000, interp_ti_expt(1.0)*1000))
-        print("SOLPS:   {:.3e}       {:6.2f}        {:6.2f}".format(interp_ne_solps(1.0), interp_te_solps(1.0), interp_ti_solps(1.0)))
+        print("SOLPS:   {:.3e}       {:6.2f}        {:6.2f}\n".format(float(interp_ne_solps(1.0)), float(interp_te_solps(1.0)), float(interp_ti_solps(1.0))))
 
     if update_old_last10s:
         update_old_last10_files()        
@@ -343,29 +343,25 @@ if __name__ == '__main__':
 # ----------------------------------------------------------------------------------------
 
 
-def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
-                  profiles_fileloc = None, shotnum = None, ptimeid = None, prunid = None,
-                  use_existing_last10 = False, chie_use_grad = False, chii_use_grad = False,
-                  new_b2xportparams = True, td_fileloc = None, reduce_Ti_fileloc = None,
-                  impurity_list=['c'], plotall = False, plot_xport_coeffs = True,
-                  ntim_new = 100, dtim_new = '1.0e-6', Dn_min = 0.0005):
+def increment_run(new_coefficients = 'b2.transport.inputfile_new', update_old_last10s = True,
+                  new_b2xportparams = True, ntim_new = 100, dtim_new = '1.0e-6'):
     """
-    This routine runs the main calculation of transport coefficients, then saves the old
-    b2.transport.inputfile, b2.transport.parameters and b2fstati files with the iteration
-    number and updates the b2mn.dat file with short time steps in preparation for the new run
+    After running the main routine, if you're happy with the new transport coefficients,
+    run this to save the previous iteration of transport coefficients and prepare to
+    run SOLPS with the new coefficients.
+    This saves the old b2.transport.inputfile, b2.transport.parameters and b2fstati files
+    with the iteration number and updates the b2mn.dat file with short time steps in
+    preparation for the new run
 
     Hide input files from this routine by using '_' in the filename after 'b2.transport.inputfile'
 
-    Example file for reduce_ti_fileloc: '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt'
+    Inputs:
+      new_coefficients    File location for the new b2.transport.inputfile
+      update_old_last10s  Set to False to skip saving the .last10 files
+      new_b2xportparams   Set to False if you don't want to use the new b2.transport.parameters file
+      ntim_new            Number of time steps for b2mn.dat
+      dtim_new            Duration of time steps for b2mn.dat
     """
-    
-    xp = main(gfile_loc = gfile_loc, new_filename = new_filename,
-              profiles_fileloc = profiles_fileloc, shotnum = shotnum, ptimeid = ptimeid,
-              prunid = prunid, Dn_min = Dn_min, use_existing_last10 = use_existing_last10,
-              chie_use_grad=chie_use_grad, chii_use_grad=chii_use_grad,
-              new_b2xportparams=new_b2xportparams, update_old_last10s=True, ti_fileloc=td_fileloc,
-              reduce_Ti_fileloc = reduce_Ti_fileloc, impurity_list=impurity_list, plotall = plotall,
-              plot_xport_coeffs = plot_xport_coeffs, verbose=False, figblock=False)
     
     allfiles = os.listdir('.')
     all_incs = [int(i[22:]) for i in allfiles if i[:22] == 'b2.transport.inputfile' and
@@ -378,12 +374,15 @@ def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
     os.rename('b2.transport.inputfile', 'b2.transport.inputfile' + str(inc_num+1))
     os.system('cp b2fstate b2fstati')
     os.system('cp b2fstate b2fstate' + str(inc_num+1))
-    os.rename(new_filename, 'b2.transport.inputfile')
+    os.rename(new_coefficients, 'b2.transport.inputfile')
+    print('Saved previous transport coefficients under iteration ' + str(inc_num+1))
     if new_b2xportparams:
         os.rename('b2.transport.parameters', 'b2.transport.parameters' + str(inc_num+1))
         os.rename('b2.transport.parameters_new', 'b2.transport.parameters')
 
     # os.remove('run.log')  # Leave this in case there was a mistake or you want to make changes
+    if update_old_last10s:
+        update_old_last10_files()
     for filename in allfiles:
         if filename[-7:] == '.last10':
             os.remove(filename)
@@ -409,10 +408,8 @@ def increment_run(gfile_loc, new_filename = 'b2.transport.inputfile_new',
         for i in range(len(lines)):
             f.write(lines[i])
 
-    return xp
-
-
 # ----------------------------------------------------------------------------------------
+
 
 def update_old_last10_files():
     # Copy above last10 files to .old so that previous profiles can be plotted on next call
@@ -425,6 +422,7 @@ def update_old_last10_files():
     shutil.copyfile('ki3da.last10', 'ki3da.last10.old')
 
 # ----------------------------------------------------------------------------------------
+
 
 def track_inputfile_iterations(rundir=None, impurity_list=['c'], cmap='viridis', Dn_scalar = 100):
     """
