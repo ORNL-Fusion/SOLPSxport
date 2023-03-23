@@ -32,6 +32,8 @@ class SOLPSxport:
           gfile_loc       location of corresponding g file
           impurity_list   List of all the impurity species included in the plasma simulation
         """
+        if workdir[-1] == '/':
+            workdir = workdir[:-1]
 
         # Try parsing gfile name
         workdir_short = None
@@ -826,14 +828,13 @@ class SOLPSxport:
         Tries to get flux profiles from solps output, falls back to 
         Calls b2plot to get the particle flux profiles
         """
-
         try:
             if dsa is None:
                 dsa = sut.read_dsa('dsa')
+            if b2mn is None:
+                b2mn = sut.scrape_b2mn("b2mn.dat")
             if geo is None:
                 geo = sut.read_b2fgmtry('../baserun/b2fgmtry')
-            if b2mn is None:
-                b2mn = sut.scrape_b2mn("b2mn.dat")                
             if state is None:
                 state = sut.read_b2fstate("b2fstate")
             if xport is None:
@@ -846,6 +847,23 @@ class SOLPSxport:
             fluxTot = sut.avg_like_b2plot(np.sum(state['fna'][b2mn['jxa']+1,:,1,:]*z[b2mn['jxa']+1,:,:],axis=1))/sy
             fluxD   = sut.avg_like_b2plot(state['fna'][b2mn['jxa']+1,:,1,1])/sy
             fluxConv = sut.avg_like_b2plot(np.sum(xport['vlay'][:,:]*state['na'][b2mn['jxa']+1,:,:]*z[b2mn['jxa']+1,:,:],axis=1))/sy
+
+            # Prepare to handle cases with ballooning transport
+            if 'b2tqna_ballooning' in b2mn.keys():
+                self.data['solpsData']['profiles']['ballooning'] = b2mn['b2tqna_ballooning']
+                if b2mn['b2tqna_ballooning']:
+                    balloon_mult = 1
+                    if 'b2tqna_ballooning_rescale' in b2mn.keys():
+                        # We should not set this, since it just linearly modifies all transport coefficients
+                        # But in case it was used, we need to account for it
+                        balloon_mult = b2mn['b2tqna_ballooning_rescale']
+                    # Need to get bb_ref and bb for each radial position of jxa
+                    bb_ref = np.mean(geo['bb'][:,:,3])  # index 3 is |B| in center of cell, which is what it uses
+                    bb_jxa = np.array(geo['bb'][b2mn['jxa']+1,:,3])
+                    # This is the value that all D's and chi's will be multiplied by in B2.5
+                    self.data['solpsData']['profiles']['balloon_factor'] = balloon_mult * (bb_ref / bb_jxa) ** b2mn['b2tqna_ballooning']
+            else:
+                self.data['solpsData']['profiles']['ballooning'] = 0
                 
             na = np.sum(state['na'][b2mn['jxa']+1,:,:],axis=1)        
             qe = sut.avg_like_b2plot(state['fhe'][b2mn['jxa']+1,:,1])/sy
@@ -853,6 +871,7 @@ class SOLPSxport:
             x_fTot = dsa
         except:
             print('  Falling back to b2plot calls to get fluxes')
+            print('  WARNING: Ballooning transport not implemented with b2plot yet')
 
             if not self.b2plot_ready:
                 sut.set_b2plot_dev()
@@ -865,6 +884,8 @@ class SOLPSxport:
             dummy, na = sut.B2pl("na 0 0 sumz writ jxa f.y")
             dummy, qe = sut.B2pl("fhey sy m/ writ jxa f.y")
             dummy, qi = sut.B2pl("fhiy sy m/ writ jxa f.y")
+
+            # Need to grab bb_ref for all cells, then bb for jxa
         
             for c in [fluxTot, fluxConv]:
                 if not c:
@@ -1225,10 +1246,19 @@ class SOLPSxport:
         kinew_flux[kinew_flux > chii_max] = chii_max
         kenew_ratio[kenew_ratio > chie_max] = chie_max
         kenew_flux[kenew_flux > chie_max] = chie_max
-        
-        
-        # Carbon transport coefficients
 
+        # Correct for ballooning transport if using that option
+        if self.data['solpsData']['profiles']['ballooning']:
+            print("Modifying transport coefficients to account for ballooning transport,")
+            print("  using (Bave / Bloc)**" + str(self.data['solpsData']['profiles']['ballooning']))
+            dnew_ratio /= self.data['solpsData']['profiles']['balloon_factor']
+            dnew_flux /= self.data['solpsData']['profiles']['balloon_factor']
+            kenew_ratio /= self.data['solpsData']['profiles']['balloon_factor']
+            kenew_flux /= self.data['solpsData']['profiles']['balloon_factor']
+            kinew_ratio /= self.data['solpsData']['profiles']['balloon_factor']
+            kinew_flux /= self.data['solpsData']['profiles']['balloon_factor']
+
+        # Impurity transport coefficients, modify this code to manually add pedestal impurity pinch if desired
         if 'c' in self.data['impurities']:
             # vrc_mag = 20.0  # 60 for gauss
             vr_pos = 0.97

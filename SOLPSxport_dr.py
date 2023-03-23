@@ -412,14 +412,13 @@ def increment_run(new_coefficients = 'b2.transport.inputfile_new', update_old_la
 
 
 def update_old_last10_files():
-    # Copy above last10 files to .old so that previous profiles can be plotted on next call
+    """
+    Copy last10 files to .old so that previous profiles can be plotted on next call
+    """
     import shutil
-    shutil.copyfile('ne3da.last10', 'ne3da.last10.old')
-    shutil.copyfile('dn3da.last10', 'dn3da.last10.old')
-    shutil.copyfile('te3da.last10', 'te3da.last10.old')
-    shutil.copyfile('ke3da.last10', 'ke3da.last10.old')
-    shutil.copyfile('ti3da.last10', 'ti3da.last10.old')
-    shutil.copyfile('ki3da.last10', 'ki3da.last10.old')
+
+    for prof in ['ne', 'dn', 'te', 'ke', 'ti', 'ki']:
+        shutil.copyfile(prof+'3da.last10', prof+'3da.last10.old')
 
 # ----------------------------------------------------------------------------------------
 

@@ -551,15 +551,21 @@ def scrape_b2mn(fname = 'b2mn.dat'):
                 thisvar = sline[quote_pos[0]+1:quote_pos[1]]
                 this = sline[quote_pos[2]+1:quote_pos[3]]
 
-
             if thisvar == "b2mwti_jxa":
                 b2mn['jxa'] = int(this)
-            if thisvar == "b2tqna_inputfile":
-                b2mn['b2tqna_inputfile'] = int(this)
+
+            for tv in ["b2tqna_inputfile"]:  # Add int / boolean variables to this list as needed
+                if thisvar == tv:
+                    b2mn[tv] = int(this)
+
+            for tv in ["b2tqna_ballooning_rescale", "b2tqna_ballooning"]:  # Add float variables as needed
+                if thisvar == tv:
+                    b2mn[tv] = float(this)
 
     return b2mn
                     
 # ----------------------------------------------------------------------------------------
+
 def read_dsa(fname='dsa'):
     if not path.exists(fname):
         print('ERROR: b2fgmtry file not found:',fname)
@@ -854,7 +860,7 @@ def read_transport_files(fileloc, dsa=None, geo=None, state=None, force_read_inp
     # Fills using b2.transport.parameters, then b2.transport.inputfile if
     # b2mn.dat indicates inputfile is active. 
     #
-    # Uses f90nml
+    # Uses f90nml, but this should nominally be doable with the routines above
     #
     # Inputs:
     # fileloc : location of b2mn.dat, b2.transport.*
@@ -954,8 +960,7 @@ def read_transport_files(fileloc, dsa=None, geo=None, state=None, force_read_inp
                     
         except:
             pass
-        
-        
+
     return dict(dn=dn, dp=dp, chii=chii, chie=chie, vlax=vlax, vlay=vlay, vsa=vsa, sig=sig, alf=alf)
 
 # ----------------------------------------------------------------------------------------
