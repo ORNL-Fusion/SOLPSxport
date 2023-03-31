@@ -91,7 +91,7 @@ plt.rcParams.update({'mathtext.default': 'regular'})
 def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          profiles_fileloc=None, shotnum=None, ptimeid=None, prunid=None,
          nefit='tanh', tefit='tanh', ncfit='spl', chii_eq_chie = False, ti_eq_te = False,
-         Dn_min=0.001, vrc_mag=0.0, Dn_max=200,
+         Dn_min=0.001, vrc_mag=0.0, Dn_max=200, use_ratio_bc = True,
          chie_use_grad = False, chii_use_grad = False, new_b2xportparams = True,
          chie_min = 0.01, chii_min = 0.01, chie_max = 400, chii_max = 400,
          reduce_Ti_fileloc = None, update_old_last10s = False,
@@ -118,6 +118,9 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
       Dn_min            Set a floor for the allowable particle diffusion coefficient
       Dn_max            Set a maximum for the allowable particle diffusion coefficient
       chie_max          Set a maximum for the allowable electron energy diffusion coefficient
+      use_ratio_bc      Set to False if you do not want to modify the last point on the grid to
+                        attempt to enforce a boundary condition (this seems to improve convergence
+                        for narrow grids)
       vrc_mag           Hard-coded carbon impurity pinch, for trying to match nC profiles
                         (leave zero unless you also change the function within calcXportCoeffs)
       ti_decay_len      Decay length (at the outboard midplane) for imposed exponential falloff
@@ -246,7 +249,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                      vrc_mag=vrc_mag, verbose=verbose, Dn_max=Dn_max,
                      fractional_change=fractional_change, exp_prof_rad_shift=exp_prof_rad_shift,
                      chii_min=chii_min, chii_max=chii_max, chie_min=chie_min, chie_max=chie_max,
-                     chii_eq_chie=chii_eq_chie, figblock=figblock,
+                     chii_eq_chie=chii_eq_chie, figblock=figblock, use_ratio_bc=use_ratio_bc,
                      ti_decay_len=ti_decay_len, te_decay_len=te_decay_len, ne_decay_len=ne_decay_len,
                      ti_decay_min=ti_decay_min, te_decay_min=te_decay_min, ne_decay_min=ne_decay_min,
                      plot_gradient_method=(chii_use_grad or chie_use_grad))

@@ -1123,7 +1123,7 @@ class SOLPSxport:
         if verbose: print('ne_decay_len = ' + str(ne_decay_len))
         gnexp_solpslocs[-1] = -expden_dsa_func(dsa[-1]) / ne_decay_len_end
 
-        # this method assumes no convective transport (ok in some cases)
+        # this method assumes the solution is already close (ok in some cases, but should usually be avoided)
         dnew_ratio = (gnold / gnexp_solpslocs_dsa) * dold
 
         flux = fluxD - fluxConv  # Conductive portion of the total flux
@@ -1165,7 +1165,7 @@ class SOLPSxport:
         expTe_dsa_func = interpolate.interp1d(dsa_teprofile, teexp, fill_value = 'extrapolate')
         te_decay_len_end = (expTe_dsa_func(dsa[-2]) - expTe_dsa_func(dsa[-1])) / \
             np.mean([expTe_dsa_func(dsa[-1]), expTe_dsa_func(dsa[-2])])
-            
+
         if verbose: print('Te_decay_len = ' + str(te_decay_len))
         gteexp_solpslocs[-1] = -expTe_dsa_func(dsa[-1]) / te_decay_len_end
         
@@ -1209,7 +1209,7 @@ class SOLPSxport:
         # Set boundary condition to get Ti[-1] right
         expTi_dsa_func = interpolate.interp1d(dsa_tiprofile, tiexp, fill_value = 'extrapolate')
         if ti_decay_len is not None:
-            gtiexp_solpslocs[-1] = -expTi_dsa_func(dsa[-1]) / ti_decay_len    
+            gtiexp_solpslocs[-1] = -expTi_dsa_func(dsa[-1]) / ti_decay_len
         
         kinew_ratio = (gtiold / gtiexp_solpslocs) * kiold
 
