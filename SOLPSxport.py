@@ -1026,9 +1026,9 @@ class SOLPSxport:
     def calcXportCoef(self, plotit = True, Dn_min = 0.001, chie_min = 0.01, chii_min = 0.01,
                       Dn_max = 100, chie_max = 400, chii_max = 400, vrc_mag=0.0, 
                       reduce_Ti_fileloc = None, plot_gradient_method = False,
-                      fractional_change = 1, exp_prof_rad_shift = 0, chii_eq_chie = False,
+                      fractional_change = 1, elec_prof_rad_shift = 0, chii_eq_chie = False,
                       use_ratio_bc = True, debug_plots = False, verbose = False, figblock = False,
-                      ti_decay_len = 0.015, te_decay_len = None, ne_decay_len = None,
+                      ti_decay_len = 0.015, te_decay_len = None, ne_decay_len = None, rad_loc_for_exp_decay = 1.0,
                       ti_decay_min = 1, te_decay_min = 1, ne_decay_min = 1e18):
         """
         Calculates the transport coefficients to be written into b2.transport.inputfile
@@ -1043,10 +1043,11 @@ class SOLPSxport:
           ti_decay_min: far-SOL Ti to decay to (eV)
           te_decay_min: far-SOL Te to decay to (eV)
           ne_decay_min: far-SOL ne to decay to (m^-3)
+          rad_loc_for_exp_decay: Radial position in psin for the beginning of exponential decay
           fractional_change: Set to number smaller than 1 if the incremental change is too large and
                              you want to take a half step or something different
-          exp_prof_rad_shift: Apply a radial shift to all experimental profiles
-                              (in units of psi_n, positive shifts profiles outward so separatrix is hotter)
+          elec_prof_rad_shift: Apply a radial shift to experimental electron profiles
+                               (in units of psi_n, positive shifts profiles outward so separatrix is hotter)
           reduce_Ti_fileloc: Location of a saved array to get the ratio between T_C (measured) and T_i
                         Example file on GA clusters for DIII-D, calculated from Shaun Haskey's T_D measurements
                         for 171558 @ 3200 ms:
@@ -1091,13 +1092,13 @@ class SOLPSxport:
         if ne_decay_len is not None:
             print("Applying decay to ne profile")
             self.modify_ne(sol_points = 10, max_psin = np.max(psi_solps) + 0.001,
-                           decay_length = ne_decay_len, rad_loc_for_exp_decay = 1.0,
+                           decay_length = ne_decay_len, rad_loc_for_exp_decay = rad_loc_for_exp_decay,
                            ne_min = ne_decay_min, plotit = debug_plots)
             neexp = 1.0e20*self.data['expData']['fitProfs']['ne_mod']
-            neexppsi = self.data['expData']['fitProfs']['ne_mod_psi'] + exp_prof_rad_shift
+            neexppsi = self.data['expData']['fitProfs']['ne_mod_psi'] + elec_prof_rad_shift
         else:
             neexp = 1.0e20 * self.data['expData']['fitProfs']['neprof']
-            neexppsi = self.data['expData']['fitPsiProf'] + exp_prof_rad_shift
+            neexppsi = self.data['expData']['fitPsiProf'] + elec_prof_rad_shift
 
         dsa_neprofile = psi_to_dsa_func(neexppsi)            
 
@@ -1141,14 +1142,14 @@ class SOLPSxport:
         if te_decay_len is not None:
             print("Applying decay to Te profile")            
             self.modify_te(sol_points = 10, max_psin = np.max(psi_solps) + 0.001,
-                           decay_length = te_decay_len, rad_loc_for_exp_decay = 1.0,
+                           decay_length = te_decay_len, rad_loc_for_exp_decay = rad_loc_for_exp_decay,
                            te_min = te_decay_min, plotit = debug_plots)
 
             teexp = 1.0e3*self.data['expData']['fitProfs']['te_mod']
-            teexppsi = self.data['expData']['fitProfs']['te_mod_psi'] + exp_prof_rad_shift
+            teexppsi = self.data['expData']['fitProfs']['te_mod_psi'] + elec_prof_rad_shift
         else:
             teexp = 1.0e3 * self.data['expData']['fitProfs']['teprof']
-            teexppsi = self.data['expData']['fitPsiProf'] + exp_prof_rad_shift
+            teexppsi = self.data['expData']['fitPsiProf'] + elec_prof_rad_shift
 
         dsa_teprofile = psi_to_dsa_func(teexppsi)
         
@@ -1185,15 +1186,15 @@ class SOLPSxport:
 
         if reduce_Ti_fileloc or (ti_decay_len is not None):
             self.modify_ti(ratio_fileloc = reduce_Ti_fileloc, sol_points = 10, max_psin = np.max(psi_solps) + 0.001,
-                           decay_length = ti_decay_len, rad_loc_for_exp_decay = 1.0,
+                           decay_length = ti_decay_len, rad_loc_for_exp_decay = rad_loc_for_exp_decay,
                            plotit = debug_plots, reduce_ti = (reduce_Ti_fileloc is not None), ti_min = ti_decay_min)
 
             tiexp = 1.0e3*self.data['expData']['fitProfs']['ti_mod']
-            tiexppsi = self.data['expData']['fitProfs']['ti_mod_psi'] + exp_prof_rad_shift
+            tiexppsi = self.data['expData']['fitProfs']['ti_mod_psi']  # + exp_prof_rad_shift
 
         else:
             tiexp = 1.0e3*self.data['expData']['fitProfs']['tiprof']
-            tiexppsi = self.data['expData']['fitProfs']['tipsi'] + exp_prof_rad_shift
+            tiexppsi = self.data['expData']['fitProfs']['tipsi']  # + exp_prof_rad_shift
         
         dsa_tiprofile = psi_to_dsa_func(tiexppsi)
         
@@ -1288,7 +1289,7 @@ class SOLPSxport:
                                                'kenew_ratio': kenew_ratio, 'kenew_flux':kenew_flux,
                                                'kinew_ratio': kinew_ratio, 'kinew_flux':kinew_flux,
                                                'vr_carbon': vr_carbon, 'D_carbon': D_carbon,
-                                               'limits': coef_limits, 'exp_prof_shift': exp_prof_rad_shift}
+                                               'limits': coef_limits, 'elec_prof_shift': elec_prof_rad_shift}
         if plotit:
             self.plotXportCoef(figblock=figblock, plot_Ti = not chii_eq_chie,
                                plot_older=('ne_old' in self.data['solpsData']['last10'].keys()),
@@ -1371,28 +1372,28 @@ class SOLPSxport:
         kinew_flux = self.data['solpsData']['xportCoef']['kinew_flux']
         coef_limits = self.data['solpsData']['xportCoef']['limits']
 
-        exp_prof_shift = self.data['solpsData']['xportCoef']['exp_prof_shift']
+        elec_prof_shift = self.data['solpsData']['xportCoef']['elec_prof_shift']
         
         if 'te_mod' in self.data['expData']['fitProfs'].keys():            
             teexp = 1.0e3*self.data['expData']['fitProfs']['te_mod']
-            teexppsi = self.data['expData']['fitProfs']['te_mod_psi'] + exp_prof_shift
+            teexppsi = self.data['expData']['fitProfs']['te_mod_psi'] + elec_prof_shift
         else:
             teexp = 1.0e3 * self.data['expData']['fitProfs']['teprof']
-            teexppsi = self.data['expData']['fitPsiProf'] + exp_prof_shift
+            teexppsi = self.data['expData']['fitPsiProf'] + elec_prof_shift
 
         if 'ne_mod' in self.data['expData']['fitProfs'].keys():            
             neexp = 1.0e20*self.data['expData']['fitProfs']['ne_mod']
-            neexppsi = self.data['expData']['fitProfs']['ne_mod_psi'] + exp_prof_shift
+            neexppsi = self.data['expData']['fitProfs']['ne_mod_psi'] + elec_prof_shift
         else:
             neexp = 1.0e20*self.data['expData']['fitProfs']['neprof']      
-            neexppsi = self.data['expData']['fitPsiProf'] + exp_prof_shift
+            neexppsi = self.data['expData']['fitPsiProf'] + elec_prof_shift
 
         if 'ti_mod' in self.data['expData']['fitProfs'].keys():
             tiexp = 1.0e3*self.data['expData']['fitProfs']['ti_mod']
-            tiexppsi = self.data['expData']['fitProfs']['ti_mod_psi'] + exp_prof_shift
+            tiexppsi = self.data['expData']['fitProfs']['ti_mod_psi']  #+ exp_prof_shift
         else:
             tiexp = 1.0e3*self.data['expData']['fitProfs']['tiprof']            
-            tiexppsi = self.data['expData']['fitProfs']['tipsi'] + exp_prof_shift
+            tiexppsi = self.data['expData']['fitProfs']['tipsi']  # + exp_prof_shift
 
         psi_solps = self.data['solpsData']['psiSOLPS']
         neold = self.data['solpsData']['last10']['ne']
@@ -1464,7 +1465,7 @@ class SOLPSxport:
 
         if plot_older:
             ax[0, 1].plot(psi_solps, teolder / 1.0e3, '--g', lw = 1, label = 'SOLPS old')
-        ax[0, 1].plot(psi_solps, teold / 1.0e3, 'xr', lw = 2, label = 'SOLPS')
+        ax[0, 1].plot(psi_solps, teold / 1.0e3, '-xr', lw = 2, label = 'SOLPS')
         ax[0, 1].set_ylabel('T$_e$ (keV)')
         ax[0, 1].set_ylim([0, max_Te*headroom])
         ax[0, 1].grid('on')
@@ -1491,7 +1492,7 @@ class SOLPSxport:
             ax[0, 2].plot(tiexppsi, tiexp / 1.0e3, '--bo', lw = 1, label = 'Exp. Data')
             if plot_older:
                 ax[0, 2].plot(psi_solps, tiolder / 1.0e3, '--g', lw = 1, label = 'SOLPS old')
-            ax[0, 2].plot(psi_solps, tiold / 1.0e3, 'xr', lw = 2, label = 'SOLPS')
+            ax[0, 2].plot(psi_solps, tiold / 1.0e3, '-xr', lw = 2, label = 'SOLPS')
             ax[0, 2].set_ylabel('T$_i$ (keV)')
             ax[0, 2].set_ylim([0, max_Ti*headroom])
             ax[0, 2].grid('on')
@@ -1536,11 +1537,11 @@ class SOLPSxport:
         
         # Load experimental profiles
 
-        psi_TSfit = self.data['expData']['fitPsiProf'] + self.data['solpsData']['xportCoef']['exp_prof_shift']
+        psi_TSfit = self.data['expData']['fitPsiProf'] + self.data['solpsData']['xportCoef']['elec_prof_shift']
         nefit = 1.0e20 * self.data['expData']['fitProfs']['neprof']
         tefit = self.data['expData']['fitProfs']['teprof']
         tifit = self.data['expData']['fitProfs']['tiprof']
-        tifitpsi = self.data['expData']['fitProfs']['tipsi'] + self.data['solpsData']['xportCoef']['exp_prof_shift']
+        tifitpsi = self.data['expData']['fitProfs']['tipsi']  #+ self.data['solpsData']['xportCoef']['exp_prof_shift']
 
         rawdat_keys = ['nedatpsi', 'tedatpsi']
         rawdat_scalars = [10, 1.0]  # ne saved as 10^20, we want 10^19

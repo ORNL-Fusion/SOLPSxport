@@ -95,9 +95,9 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          chie_use_grad = False, chii_use_grad = False, new_b2xportparams = True,
          chie_min = 0.01, chii_min = 0.01, chie_max = 400, chii_max = 400,
          reduce_Ti_fileloc = None, update_old_last10s = False,
-         fractional_change = 1, exp_prof_rad_shift = 0, ti_fileloc = None,
+         fractional_change = 1, elec_prof_rad_shift = 0, ti_fileloc = None,
          impurity_list = ['c'], use_existing_last10=False, plot_xport_coeffs=True,
-         plotall=False, verbose=False, figblock=False,
+         plotall=False, verbose=False, figblock=False, rad_loc_for_exp_decay=1.0,
          ti_decay_len=0.015, te_decay_len = None, ne_decay_len = None,
          ti_decay_min=1, te_decay_min = 1, ne_decay_min = 1e18):
     """
@@ -123,10 +123,12 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                         for narrow grids)
       vrc_mag           Hard-coded carbon impurity pinch, for trying to match nC profiles
                         (leave zero unless you also change the function within calcXportCoeffs)
+      rad_loc_for_exp_decay: Radial position in psin for the beginning of exponential decay
       ti_decay_len      Decay length (at the outboard midplane) for imposed exponential falloff
-                        for experimental Ti, beginning at separatrix (impurity CER is incorrect in SOL)
-      te_decay_len      ""
-      ne_decay_len      ""
+                        for experimental Ti, beginning at rad_loc_for_exp_decay (default = separatrix)
+                        (this is useful because impurity CER is incorrect in SOL)
+      te_decay_len      "" for Te
+      ne_decay_len      "" for ne
       ti_decay_min      far-SOL Ti to decay to (eV)
       te_decay_min      far-SOL Te to decay to (eV)
       ne_decay_min      far-SOL ne to decay to (m^-3)
@@ -143,7 +145,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
       update_old_last10s  Set to True to copy the last10 files to last10.old for comparison with the next iteration
       fractional_change Set to number smaller than 1 if the incremental change is too large and
                         you want to take a smaller step
-      exp_prof_rad_shift: Apply a radial shift to experimental profiles
+      elec_prof_rad_shift: Apply a radial shift to experimental electron profiles
                         (in units of psi_n, positive shifts profiles outward so separatrix is hotter)
       ti_fileloc        Separate file with Ti data (overwrites previous fits)
       impurity_list     List of all the impurities included in the plasma simulation
@@ -247,11 +249,12 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
     print("Running calcXportCoeff")
     xp.calcXportCoef(plotit=plotall or plot_xport_coeffs, reduce_Ti_fileloc=reduce_Ti_fileloc, Dn_min=Dn_min,
                      vrc_mag=vrc_mag, verbose=verbose, Dn_max=Dn_max,
-                     fractional_change=fractional_change, exp_prof_rad_shift=exp_prof_rad_shift,
+                     fractional_change=fractional_change, elec_prof_rad_shift=elec_prof_rad_shift,
                      chii_min=chii_min, chii_max=chii_max, chie_min=chie_min, chie_max=chie_max,
                      chii_eq_chie=chii_eq_chie, figblock=figblock, use_ratio_bc=use_ratio_bc,
                      ti_decay_len=ti_decay_len, te_decay_len=te_decay_len, ne_decay_len=ne_decay_len,
                      ti_decay_min=ti_decay_min, te_decay_min=te_decay_min, ne_decay_min=ne_decay_min,
+                     rad_loc_for_exp_decay=rad_loc_for_exp_decay,
                      plot_gradient_method=(chii_use_grad or chie_use_grad))
 
     print("Writing to: " + new_filename)
@@ -290,7 +293,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
         interp_te_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'], xp.data['solpsData']['last10']['te'])
         interp_ti_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'], xp.data['solpsData']['last10']['ti'])
 
-        print("\nUsing profile shift of: %.3e (in psiN)\n"%exp_prof_rad_shift)
+        print("\nUsing electron profile shift of: %.3e (in psiN)\n"%elec_prof_rad_shift)
         print("        ne_sep (m^-3)   Te_sep (eV)   Ti_sep (eV)")
         print("Expt:    {:.3e}       {:6.2f}        {:6.2f}".format(interp_ne_expt(1.0)*1e20, interp_te_expt(1.0)*1000, interp_ti_expt(1.0)*1000))
         print("SOLPS:   {:.3e}       {:6.2f}        {:6.2f}\n".format(float(interp_ne_solps(1.0)), float(interp_te_solps(1.0)), float(interp_ti_solps(1.0))))
