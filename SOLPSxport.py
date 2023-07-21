@@ -388,7 +388,7 @@ class SOLPSxport:
         ti = []
 
         for i, l in enumerate(lines):
-            if l.startswith("#"):
+            if l.startswith("#") or len(l) < 3:
                 continue
             else:
                 psin.append(float(l.strip().split()[0]))
