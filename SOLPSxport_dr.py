@@ -25,6 +25,7 @@ Instructions for command line call:
 $ python ~/Pytools/SOLPSxport_dr.py -g <gfile location> -s <shot number> -t <profile time ID> -r <profile run ID>
 or if you already have a saved profiles file (.pkl):
 $ python ~/Pytools/SOLPSxport_dr.py -g <gfile location> -p <profiles file location>
+optional flags: --chii_eq_chie (or) --ti_eq_te
 
 
 For calling within interactive Python session:
@@ -118,9 +119,10 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
       Dn_min            Set a floor for the allowable particle diffusion coefficient
       Dn_max            Set a maximum for the allowable particle diffusion coefficient
       chie_max          Set a maximum for the allowable electron energy diffusion coefficient
-      use_ratio_bc      Set to False if you do not want to modify the last point on the grid to
-                        attempt to enforce a boundary condition (this seems to improve convergence
-                        for narrow grids)
+      use_ratio_bc      Set to True if you want to modify the last point on the grid to attempt to enforce
+                        a boundary condition (this seems to improve convergence to experimental profiles
+                        a bit for narrow grids, but ideally would do this using BCCON, BCENE and BCENI
+                        in b2.boundary.parameters)
       vrc_mag           Hard-coded carbon impurity pinch, for trying to match nC profiles
                         (leave zero unless you also change the function within calcXportCoeffs)
       rad_loc_for_exp_decay: Radial position in psin for the beginning of exponential decay
@@ -295,7 +297,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
 
         print("\nUsing electron profile shift of: %.3e (in psiN)\n"%elec_prof_rad_shift)
         print("        ne_sep (m^-3)   Te_sep (eV)   Ti_sep (eV)")
-        print("Expt:    {:.3e}       {:6.2f}        {:6.2f}".format(interp_ne_expt(1.0)*1e20, interp_te_expt(1.0)*1000, interp_ti_expt(1.0)*1000))
+        print("Expt:    {:.3e}       {:6.2f}        {:6.2f}".format(interp_ne_expt(1.0-elec_prof_rad_shift)*1e20, interp_te_expt(1.0-elec_prof_rad_shift)*1000, interp_ti_expt(1.0)*1000))
         print("SOLPS:   {:.3e}       {:6.2f}        {:6.2f}\n".format(float(interp_ne_solps(1.0)), float(interp_te_solps(1.0)), float(interp_ti_solps(1.0))))
 
     if update_old_last10s:

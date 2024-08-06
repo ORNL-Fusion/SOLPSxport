@@ -1054,7 +1054,10 @@ class SOLPSxport:
                         '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt'
           use_ratio_bc: Modifies the transport coefficients at the final grid cell proportionally to the
                         mismatch of the DC offset of the profile. Since these routines match the gradients
-                        everywhere, there needs to be some way to set the scalar offset of the profile for flux BC
+                        everywhere, there needs to be some way to set the scalar offset of the profile for flux BC.
+                        This should ideally be done by modifying BCCON, BCENE and BCENI in b2.boundary.parameters,
+                        but this input can sometimes improve agreement by modifying flux off the grid without
+                        changing those
           vrc_mag:      Magnetude of the carbon velocity pinch
                         (shape and position are still hard coded)
         """
@@ -1133,6 +1136,8 @@ class SOLPSxport:
         if use_ratio_bc:
             dnew_ratio[-1] = dold[-1] * neold[-1] / expden_dsa_func(dsa[-1])
             dnew_flux[-1] = dold[-1] * neold[-1] / expden_dsa_func(dsa[-1])
+        else:
+            print('\nne_SOLPS / ne_EXP at outer radial grid boundary = '+str(neold[-1] / expden_dsa_func(dsa[-1]))+'\n')
         
 
         dnew_ratio[0] = dnew_ratio[1] # guard cells
@@ -1249,6 +1254,9 @@ class SOLPSxport:
         kenew_flux[kenew_flux > chie_max] = chie_max
 
         # Correct for ballooning transport if using that option
+        if 'ballooning' not in self.data['solpsData']['profiles']:
+            self.data['solpsData']['profiles']['ballooning'] = 0
+
         if self.data['solpsData']['profiles']['ballooning']:
             print("Modifying transport coefficients to account for ballooning transport,")
             print("  using (Bave / Bloc)**" + str(self.data['solpsData']['profiles']['ballooning']))
@@ -1677,8 +1685,8 @@ class SOLPSxport:
                               xerr=None, fmt='o', ls='', c='k', mfc='None', mec='k',
                               zorder=1, label='Experimental Data')
 
-        ax[0, 0].plot(psi_data_fit, nefit / 1.0e19, '--k', lw=2, zorder=3, label='Experimental Fit')
-        ax[0, 0].plot(psi_solps, nesolps / 1.0e19, '-r', lw=2, zorder=2, label='SOLPS')
+        ax[0, 0].plot(psi_data_fit, nefit / 1.0e19, '--k', lw=3, zorder=2, label='Experimental Fit')
+        ax[0, 0].plot(psi_solps, nesolps / 1.0e19, '-r', lw=2, zorder=3, label='SOLPS')
         ax[0, 0].set_ylabel('n$_e$ (10$^{19}$ m$^{-3}$)')
         ax[0, 0].legend(loc='best', fontsize=14)
         ax[0, 0].set_ylim([0, max_ne * headroom])
@@ -1686,8 +1694,8 @@ class SOLPSxport:
         ax[1, 0].semilogy(psi_solps, dsolps, '-r', lw = 2)
         ax[1, 0].set_ylabel('D')
 
-        ax[0, 1].plot(psi_data_fit, tefit, '--k', lw=2, zorder=3, label='Experimental Fit')
-        ax[0, 1].plot(psi_solps, tesolps, '-r', lw=2, zorder=2, label='SOLPS')
+        ax[0, 1].plot(psi_data_fit, tefit, '--k', lw=3, zorder=2, label='Experimental Fit')
+        ax[0, 1].plot(psi_solps, tesolps, '-r', lw=2, zorder=3, label='SOLPS')
         ax[0, 1].set_ylabel('T$_e$ (keV)')
         ax[0, 1].set_ylim([0, max_temp * headroom])
         ax[0, 1].set_yticks(np.arange(0, max_temp * headroom + 0.2, 0.2))
@@ -1697,13 +1705,13 @@ class SOLPSxport:
 
         if include_ti:
             # ax[2].plot(psi_solps, tisolps, 'xr', mew = 2, ms = 10, label = 'SOLPS')
-            ax[0, 2].plot(psi_solps, tisolps, '-r', lw=2, zorder=2, label = 'SOLPS')
-            ax[0, 2].plot(tifitpsi, tifit, '--k', lw=2, zorder=3, label='Experimental Fit')
+            ax[0, 2].plot(tifitpsi, tifit, '--k', lw=3, zorder=2, label='Experimental Fit')
+            ax[0, 2].plot(psi_solps, tisolps, '-r', lw=2, zorder=3, label = 'SOLPS')
 
             if 'ti_mod' in self.data['expData']['fitProfs'].keys():
                 ax[0, 2].plot(self.data['expData']['fitProfs']['ti_mod_psi'],
                               self.data['expData']['fitProfs']['ti_mod'],
-                              '--b', lw=2, zorder=4, label='Modified Ti fit')
+                              '--b', lw=2, zorder=1, label='Modified Ti fit')
             ax[0, 2].set_ylabel('T$_i$ (keV)')
             ax[0, 2].set_ylim([0, max_temp * headroom])
             ax[0, 2].set_yticks(np.arange(0, max_temp * headroom + 0.2, 0.2))
