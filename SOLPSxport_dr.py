@@ -58,7 +58,7 @@ Once you've figured out all of the settings you need and are iterating on a run 
 converge to the solution for transport coefficients, the routine "increment_run" can
 be useful to do this all quickly
 
-R.S. Wilcox, J.M. Canik and J.D. Lore 2020-2023
+R.S. Wilcox, J.M. Canik and J.D. Lore 2020-2024
 contact: wilcoxrs@ornl.gov
 
 Reference for this procedure:
@@ -98,8 +98,8 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          reduce_Ti_fileloc = None, update_old_last10s = False,
          fractional_change = 1, elec_prof_rad_shift = 0, ti_fileloc = None,
          impurity_list = ['c'], use_existing_last10=False, plot_xport_coeffs=True,
-         plotall=False, verbose=False, figblock=False, rad_loc_for_exp_decay=1.0,
-         ti_decay_len=0.015, te_decay_len = None, ne_decay_len = None,
+         plotall=False, plot_fluxes = False, verbose=False, figblock=False,
+         rad_loc_for_exp_decay=1.0, ti_decay_len=0.015, te_decay_len = None, ne_decay_len = None,
          ti_decay_min=1, te_decay_min = 1, ne_decay_min = 1e18):
     """
     Driver for the code, returns an object of class 'SOLPSxport'
@@ -155,6 +155,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
       plot_xport_coeffs Plot the SOLPS and experimental profiles, along with the previous
                         and next iteration of transport coefficients
       plotall           Produce a bunch more plots from the subroutines used in the process
+      plot_fluxes       Plot the poloidally-integrated radial fluxes for particles and energy
       verbose           Set to True to print a lot more outputs to terminal
       figblock          Set to True if calling from command line and you want to see figures
     Returns:
@@ -241,8 +242,8 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
         xp.data['expData']['fitProfs']['tipsi'] = xp.data['expData']['fitPsiProf']
         xp.data['expData']['fitProfs']['tiprof'] = xp.data['expData']['fitProfs']['teprof']
 
-    print("Getting flux profiles")
-    xp.getSOLPSfluxProfs(plotit=plotall,dsa=dsa,b2mn=b2mn,geo=geo,state=state,xport=xport)
+    print("Getting upstream flux profiles from poloidal index jxa")
+    xp.getjxafluxprofs(plotit=plotall,dsa=dsa,b2mn=b2mn,geo=geo,state=state,xport=xport)
 
     if impurity_list:
         print("Running getSOLPSCarbonProfs")
@@ -263,10 +264,11 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
     xp.writeXport(new_filename=new_filename, chie_use_grad=chie_use_grad, chii_use_grad=chii_use_grad,
                   chii_eq_chie=chii_eq_chie)
 
+    psin_solps = list(xp.data['solpsData']['psiSOLPS'])
+
     # Modify b2.transport.parameters so that PFR has same transport coefficients as first cell of SOL
     if new_b2xportparams:
-        psin = list(xp.data['solpsData']['psiSOLPS'])
-        first_sol_ind = psin.index(min([i for i in psin if i > 1]))
+        first_sol_ind = psin_solps.index(min([i for i in psin_solps if i > 1]))
         dperp_pfr = xp.data['solpsData']['xportCoef']['dnew_flux'][first_sol_ind]
 
         if chie_use_grad:
@@ -286,19 +288,42 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                               dperp=dperp_pfr, chieperp=chieperp_pfr, chiiperp=chiiperp_pfr, verbose=True)
 
 
-        # Add some screen output for separatrix values
-        interp_ne_expt = interpolate.interp1d(xp.data['expData']['fitPsiProf'],xp.data['expData']['fitProfs']['neprof'],kind='linear')
-        interp_te_expt = interpolate.interp1d(xp.data['expData']['fitPsiProf'],xp.data['expData']['fitProfs']['teprof'],kind='linear')
-        interp_ti_expt = interpolate.interp1d(xp.data['expData']['fitProfs']['tipsi'],xp.data['expData']['fitProfs']['tiprof'],kind='linear')
+    print("Checking particle and energy fluxes through the North boundary")
+    xp.get_integrated_radial_fluxes(plotit=plot_fluxes, dsa=dsa, geo=geo, state=state, figblock=figblock)
 
-        interp_ne_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'], xp.data['solpsData']['last10']['ne'])
-        interp_te_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'], xp.data['solpsData']['last10']['te'])
-        interp_ti_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'], xp.data['solpsData']['last10']['ti'])
+    # If the core D+ particle flux is less than 5% of the peak, then the radially escaping flux is compared to
+    # the separatrix particle flux rather than the core flux
 
-        print("\nUsing electron profile shift of: %.3e (in psiN)\n"%elec_prof_rad_shift)
-        print("        ne_sep (m^-3)   Te_sep (eV)   Ti_sep (eV)")
-        print("Expt:    {:.3e}       {:6.2f}        {:6.2f}".format(interp_ne_expt(1.0-elec_prof_rad_shift)*1e20, interp_te_expt(1.0-elec_prof_rad_shift)*1000, interp_ti_expt(1.0)*1000))
-        print("SOLPS:   {:.3e}       {:6.2f}        {:6.2f}\n".format(float(interp_ne_solps(1.0)), float(interp_te_solps(1.0)), float(interp_ti_solps(1.0))))
+    gammaD_tot = xp.data['solpsData']['profiles']['gammaD_tot']
+
+    if gammaD_tot[0] > 0.05*np.max(gammaD_tot):
+        print("\nInjected D particles escaping radial grid boundary: {:4.1f}%".format(100*gammaD_tot[-1] / gammaD_tot[0]))
+    else:
+        print('\nSep. D particle flux escaping radial grid boundary: {:4.1f}%'.format(100*gammaD_tot[-1]/gammaD_tot[len(psin_solps)/2]))
+
+    print("Injected energy flux escaping radial grid boundary: {:4.1f}%".
+          format(100*xp.data['solpsData']['profiles']['Qtot'][-1]/xp.data['solpsData']['profiles']['Qtot'][0]))
+
+
+    # Add some screen output for separatrix and core values
+    interp_ne_expt = interpolate.interp1d(xp.data['expData']['fitPsiProf'],xp.data['expData']['fitProfs']['neprof'],kind='linear')
+    interp_te_expt = interpolate.interp1d(xp.data['expData']['fitPsiProf'],xp.data['expData']['fitProfs']['teprof'],kind='linear')
+    interp_ti_expt = interpolate.interp1d(xp.data['expData']['fitProfs']['tipsi'],xp.data['expData']['fitProfs']['tiprof'],kind='linear')
+
+    interp_ne_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'], xp.data['solpsData']['last10']['ne'])
+    interp_te_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'], xp.data['solpsData']['last10']['te'])
+    interp_ti_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'], xp.data['solpsData']['last10']['ti'])
+
+    print("\nUsing electron profile shift of: %.3e (in psiN)\n"%elec_prof_rad_shift)
+    print("        ne_sep (m^-3)   Te_sep (eV)   Ti_sep (eV)   ne_core (m^-3)")
+    print("Expt:    {:.3e}       {:6.2f}        {:6.2f}        {:.3e}".format(interp_ne_expt(1.0-elec_prof_rad_shift)*1e20,
+                                                                              interp_te_expt(1.0-elec_prof_rad_shift)*1000,
+                                                                              interp_ti_expt(1.0)*1000,
+                                                                              interp_ne_expt(np.min(xp.data['solpsData']['psiSOLPS']))*1e20))
+    print("SOLPS:   {:.3e}       {:6.2f}        {:6.2f}        {:.3e}\n".format(float(interp_ne_solps(1.0)),
+                                                                                float(interp_te_solps(1.0)),
+                                                                                float(interp_ti_solps(1.0)),
+                                                                                float(interp_ne_solps(np.min(xp.data['solpsData']['psiSOLPS'])))))
 
     if update_old_last10s:
         update_old_last10_files()        
@@ -327,12 +352,10 @@ if __name__ == '__main__':
                         type=float, default=1)
     if py3_9:
         parser.add_argument('--chii_eq_chie', action='store_true', default=False)
-        # parser.set_defaults(chii_eq_chie=False)
         parser.add_argument('--chie_use_grad', action='store_true', default=False)
-        # parser.set_defaults(chie_use_grad=False)
         parser.add_argument('--chii_use_grad', action='store_true', default=False)
-        # parser.set_defaults(chii_use_grad=True)
         parser.add_argument('--ti_eq_te', action='store_true', default=False)
+        parser.add_argument('--plot_fluxes', action='store_true', default=False)
 
     args = parser.parse_args()
 

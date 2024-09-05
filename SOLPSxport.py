@@ -351,7 +351,7 @@ class SOLPSxport:
             print("WARNING: Experimental profile is negative!!!")
             print("Either (a) modify profile by using a different fit, (b) set a " +
                   "decay length using 'enforce_decay_length', or (c) ignore the profile" +
-                  " fit and set a constant diffusivity using 'flatSOLcoeffs'")
+                  " fit and set a constant diffusivity using 'setflatSOLcoeffs'")
             
         if plotit:
             f, ax = plt.subplots(2, sharex = 'all')
@@ -690,11 +690,12 @@ class SOLPSxport:
 
     # ----------------------------------------------------------------------------------------
 
-    def calcPsiVals(self, plotit = False, dsa = None, b2mn = None, geo = None, verbose=True):
+    def calcPsiVals(self, plotit = False, dsa = None, b2mn = None, geo = None, verbose=True, write_to_file=None):
         """
-        Call b2plot to get the locations of each grid cell in psin space
+        Get the locations of each grid cell in psin space
 
         Saves the values to dictionaries in self.data['solpsData']
+        Optionally can also write to a file, so you don't need to do this calculation every time
 
         Find grid corners first:
           0: lower left
@@ -785,6 +786,11 @@ class SOLPSxport:
         self.data['solpsData']['dsa'] = np.array(dsa)
         self.data['solpsData']['psiSOLPS'] = np.array(psi_solps)
 
+        if write_to_file:
+            with open(write_to_file, 'w') as f:
+                for i in range(len(psi_solps)):
+                    f.write(str(psi_solps[i]))
+
         if plotit:
             psiN_range = [np.min(psi_solps), np.max(psi_solps)]
 
@@ -823,7 +829,7 @@ class SOLPSxport:
     
     # ----------------------------------------------------------------------------------------
     
-    def getSOLPSfluxProfs(self, plotit = False, b2mn = None, geo = None, state = None, dsa = None, xport = None):
+    def getjxafluxprofs(self, plotit = False, b2mn = None, geo = None, state = None, dsa = None, xport = None):
         """
         Tries to get flux profiles from solps output, falls back to 
         Calls b2plot to get the particle flux profiles
@@ -889,7 +895,7 @@ class SOLPSxport:
         
             for c in [fluxTot, fluxConv]:
                 if not c:
-                    print("WARNING: Variable not populated by b2plot in getSOLPSfluxProfs")
+                    print("WARNING: Variable not populated by b2plot in getjxafluxprofs")
                     print("  Make sure ncl_ncar and netcdf modules are loaded")
                     break
 
@@ -1332,7 +1338,7 @@ class SOLPSxport:
 
     # ----------------------------------------------------------------------------------------
 
-    def flatSOLcoeffs(self, prof_choice, psin_start, coef_val, plotit=False, figblock = False):
+    def setflatSOLcoeffs(self, prof_choice, psin_start, coef_val, plotit=False, figblock = False):
         """
         Manually change transport coefficients outside of some position to a specified value
         Useful if profile flattens (e.g., a density shoulder) and a precise match is difficult or unnecessary
@@ -1729,6 +1735,116 @@ class SOLPSxport:
         plt.tight_layout()
 
         plt.show(block=False)
+
+    # ----------------------------------------------------------------------------------------
+    
+    def get_integrated_radial_fluxes(self, plotit=False, npol_core = 48, nrad_core = 18,
+                                     dsa=None, geo=None, state=None, figblock=False):
+        """
+        Get the total poloidally integrated radial particle and energy flux profiles
+        Focus on fuel particles, don't worry about impurities leaving grid
+
+        Should be able to get npol_core (number of poloidal cells in the core) from geometry, but don't know where it is
+        """
+
+        try:
+            if dsa is None:
+                dsa = sut.read_dsa('dsa')
+            if geo is None:
+                geo = sut.read_b2fgmtry('../baserun/b2fgmtry')
+            if state is None:
+                state = sut.read_b2fstate("b2fstate")
+
+            x_intflux = dsa
+
+            # sy2D = sut.avg_like_b2plot_2D(geo['gs'][:, :, 1])  # don't need to normalize, just integrating totals here
+            z = np.ones((geo['nx'] + 2, geo['ny'] + 2, state['ns']))
+            for i in range(state['ns']):
+                z[:, :, i] = z[:, :, i] * state['zamin'][i]
+
+            # Get total integrated radial particle fluxes (2D arrays)
+
+            # gamma_2D = sut.avg_like_b2plot_2D(np.sum(state['fna'][:, :, 1, :] * z[:, :, :], axis=2))
+            gammaD_2D = sut.avg_like_b2plot_2D(state['fna'][:, :, 1, 1])
+            # fluxConv = sut.avg_like_b2plot_2D(np.sum(xport['vlay'][:, :] * state['na'][:, :, :] * z[:, :, :], axis=2))
+
+            # Get total integrated radial energy flux (2D arrays)
+
+            na = np.sum(state['na'][:, :, :], axis=2)
+            Qe_2D = sut.avg_like_b2plot_2D(state['fhe'][:, :, 1])
+            Qi_2D = sut.avg_like_b2plot_2D(state['fhi'][:, :, 1])
+            Qtot_2D = Qe_2D + Qi_2D
+
+            # Integrate poloidally for each region
+
+            gammaD_core = np.sum(gammaD_2D[npol_core/2+1 : 3*npol_core/2+1, 1:nrad_core+1], axis=0)
+            gammaD_sol = np.sum(gammaD_2D[1:-1, nrad_core+1:-1], axis=0)
+            gammaD_pfr = np.sum(gammaD_2D[1:npol_core/2+1, 1:nrad_core+1], axis=0) + \
+                        np.sum(gammaD_2D[3*npol_core/2+1:-1, 1:nrad_core+1], axis=0)
+
+            Q_core = np.sum(Qtot_2D[npol_core/2+1 : 3*npol_core/2+1, 1:nrad_core+1], axis=0)
+            Q_sol = np.sum(Qtot_2D[1:-1, nrad_core+1:-1], axis=0)
+            Q_pfr = np.sum(Qtot_2D[1:npol_core/2+1, 1:nrad_core+1], axis=0) + \
+                    np.sum(Qtot_2D[3*npol_core/2+1:-1, 1:nrad_core+1], axis=0)
+
+            Qtot = np.concatenate((Q_core, Q_sol))
+            gammaD_tot = np.concatenate((gammaD_core, gammaD_sol))
+
+        except:
+            print('  Failed to get data to calculate poloidally-integrated radial fluxes')
+            print("  Check fluxes manually using 'display_tallies'")
+            return
+
+        self.data['solpsData']['profiles']['x_intflux'] = np.array(x_intflux)
+        self.data['solpsData']['profiles']['Qtot'] = np.array(Qtot)
+        self.data['solpsData']['profiles']['Qpfr'] = np.array(Q_pfr)
+        self.data['solpsData']['profiles']['gammaD_tot'] = np.array(gammaD_tot)
+        self.data['solpsData']['profiles']['gammaD_pfr'] = np.array(gammaD_pfr)
+
+        if plotit:
+            self.plot_radial_fluxes(figblock=figblock)
+
+    # ----------------------------------------------------------------------------------------
+
+    def plot_radial_fluxes(self, figblock=False, xticks=np.arange(0.84, 1.05, 0.04), threshold_core_gamma=1e19):
+        """
+        Plot the radial fluxes for both particles and energy to troubleshoot cases
+
+        Inputs:
+          threshold_core_gamma   If the core particle flux is less than this value, then the radially escaping
+                                 flux is compared to the separatrix particle flux rather than the core flux
+        """
+        psin = self.data['solpsData']['psiSOLPS'][1:-1]
+        gammaD_tot = self.data['solpsData']['profiles']['gammaD_tot']
+        Qtot = self.data['solpsData']['profiles']['Qtot']
+        nrad = len(psin)
+
+        f, ax = plt.subplots(2, sharex=True)
+
+        ax[0].plot(psin, gammaD_tot / 1e21,'k', lw=3)
+        ax[1].plot(psin, Qtot/1e6, 'r', lw=3)
+
+        ax[0].set_xticks(xticks)
+        ax[0].set_xlim([np.min(psin) - 0.01, np.max(psin) + 0.004])
+        ax[0].set_ylabel('$\Gamma_{tot}$ (10$^{21}$ e$^-$/s)')
+        if gammaD_tot[0] > threshold_core_gamma:
+            ax[0].text(np.min(psin), 0.2*np.max(gammaD_tot/1e21),
+                       'Injected D particles escaping domain radially: {:4.1f}%'.format(100*gammaD_tot[-1]/gammaD_tot[0]), fontsize=12)
+        else:
+            ax[0].text(np.min(psin), 0.2*np.max(gammaD_tot/1e21),
+                       'Sep. D particle flux escaping domain radially: {:4.1f}%'.format(100*gammaD_tot[-1]/gammaD_tot[nrad/2]), fontsize=12)
+
+        ax[1].set_ylabel('Q$_{tot}$ (MW)')
+        ax[1].text(np.min(psin), 0.2*np.max(Qtot/1e6),
+                   'Injected energy escaping domain radially: {:4.1f}%'.format(100*Qtot[-1]/Qtot[0]), fontsize=12)
+        ax[1].set_xlabel('$\psi_N$')
+        for i in range(2):
+            ax[i].grid('on')
+            ylims=ax[i].get_ylim()
+            ax[i].set_ylim([0,ylims[1]])
+        plt.tight_layout()
+
+        plt.show(block=figblock)
 
     # ----------------------------------------------------------------------------------------
     

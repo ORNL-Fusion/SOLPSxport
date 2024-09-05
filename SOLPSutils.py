@@ -849,9 +849,19 @@ def read_input_dat(fileloc, verbose = False):
 # ----------------------------------------------------------------------------------------
 
 def avg_like_b2plot(slice1D):
-    # Pass in radial flux array, e.g., state['fhe'][b2mn['jxa']+1,1,1]
+    # Pass in radial flux array, e.g., state['fhe'][b2mn['jxa']+1,:,1]
     # Just average for interior points and use the end points in guard cells
     return np.concatenate([[slice1D[1]],(slice1D[1:-1]+slice1D[2:])/2,[slice1D[-1]]])
+
+# ----------------------------------------------------------------------------------------
+
+def avg_like_b2plot_2D(slice2D, axis=1):
+    # Pass in a 2D radial flux array, e.g., state['fhe'][:,:,1]
+    # Just average for interior points and use the end points in guard cells
+    nx=len(slice2D[:,1])
+    return np.concatenate([np.reshape(slice2D[:,1], (nx, 1)),
+                           (slice2D[:,1:-1]+slice2D[:,2:])/2,
+                           np.reshape(slice2D[:,-1], (nx, 1))], axis=axis)
 
 # ----------------------------------------------------------------------------------------
 
