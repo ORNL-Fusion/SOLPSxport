@@ -1738,13 +1738,16 @@ class SOLPSxport:
 
     # ----------------------------------------------------------------------------------------
     
-    def get_integrated_radial_fluxes(self, plotit=False, npol_core = 48, nrad_core = 18,
+    def get_integrated_radial_fluxes(self, plotit=False, nrad_core=None, # nrad_sol=None,
+                                     npol_core = None, npol_wdiv=None, # npol_ediv=None,
                                      dsa=None, geo=None, state=None, figblock=False):
         """
         Get the total poloidally integrated radial particle and energy flux profiles
-        Focus on fuel particles, don't worry about impurities leaving grid
 
-        Should be able to get npol_core (number of poloidal cells in the core) from geometry, but don't know where it is
+        Inputs:
+          nrad_core, npol_wdiv, npol_core:   Number of cells in each region, including guard cells
+                                             Default: Retrieves these values assuming SN topology
+                                             need to give numbers for any DN shape (or update this code to automate!)
         """
 
         try:
@@ -1762,43 +1765,78 @@ class SOLPSxport:
             for i in range(state['ns']):
                 z[:, :, i] = z[:, :, i] * state['zamin'][i]
 
-            # Get total integrated radial particle fluxes (2D arrays)
-
-            # gamma_2D = sut.avg_like_b2plot_2D(np.sum(state['fna'][:, :, 1, :] * z[:, :, :], axis=2))
-            gammaD_2D = sut.avg_like_b2plot_2D(state['fna'][:, :, 1, 1])
-            # fluxConv = sut.avg_like_b2plot_2D(np.sum(xport['vlay'][:, :] * state['na'][:, :, :] * z[:, :, :], axis=2))
-
-            # Get total integrated radial energy flux (2D arrays)
-
-            na = np.sum(state['na'][:, :, :], axis=2)
-            Qe_2D = sut.avg_like_b2plot_2D(state['fhe'][:, :, 1])
-            Qi_2D = sut.avg_like_b2plot_2D(state['fhi'][:, :, 1])
-            Qtot_2D = Qe_2D + Qi_2D
-
-            # Integrate poloidally for each region
-
-            gammaD_core = np.sum(gammaD_2D[npol_core/2+1 : 3*npol_core/2+1, 1:nrad_core+1], axis=0)
-            gammaD_sol = np.sum(gammaD_2D[1:-1, nrad_core+1:-1], axis=0)
-            gammaD_pfr = np.sum(gammaD_2D[1:npol_core/2+1, 1:nrad_core+1], axis=0) + \
-                        np.sum(gammaD_2D[3*npol_core/2+1:-1, 1:nrad_core+1], axis=0)
-
-            Q_core = np.sum(Qtot_2D[npol_core/2+1 : 3*npol_core/2+1, 1:nrad_core+1], axis=0)
-            Q_sol = np.sum(Qtot_2D[1:-1, nrad_core+1:-1], axis=0)
-            Q_pfr = np.sum(Qtot_2D[1:npol_core/2+1, 1:nrad_core+1], axis=0) + \
-                    np.sum(Qtot_2D[3*npol_core/2+1:-1, 1:nrad_core+1], axis=0)
-
-            Qtot = np.concatenate((Q_core, Q_sol))
-            gammaD_tot = np.concatenate((gammaD_core, gammaD_sol))
-
         except:
             print('  Failed to get data to calculate poloidally-integrated radial fluxes')
             print("  Check fluxes manually using 'display_tallies'")
             return
 
+        if None in [npol_core, npol_wdiv, nrad_core]:  #, npol_ediv, nrad_sol]:
+            regions_pol, region_counts_pol = np.unique(geo['region'][:,1,0],return_counts=True)
+            if len(regions_pol) > 3:
+                print("\nERROR: Automated routine to find poloidal and radial grid size is not yet programmed to handle non-SN topologies")
+                print("  Please manually enter grid sizes to routine 'get_integrated_radial_fluxes'")
+                return
+            core_ind_pol = np.where(regions_pol==1)[0][0]
+            npol_core = region_counts_pol[core_ind_pol]
+            wdiv_ind_pol = np.where(regions_pol==3)[0][0]
+            npol_wdiv = region_counts_pol[wdiv_ind_pol]
+            # ediv_ind_pol = np.where(regions_pol==4)[0][0]  # don't need this, just stop at index -1
+            # npol_ediv = region_counts_pol[ediv_ind_pol]
+
+            regions_rad, region_counts_rad = np.unique(geo['region'][npol_wdiv+3,:,0], return_counts=True)
+            core_ind_rad = np.where(regions_rad==1)[0][0]
+            nrad_core = region_counts_rad[core_ind_rad]
+            # sol_ind_rad = np.where(regions_rad==2)[0][0]   # don't need this, just stop at index -1
+            # nrad_sol = region_counts_rad[sol_ind_rad]
+
+        # Get total integrated radial particle fluxes (2D arrays) (radial direction is index #1 in third dimmension of f)
+
+        gamma_e_2D = sut.avg_like_b2plot_2D(np.sum(state['fna'][:, :, 1, :] * z[:, :, :], axis=2))
+        gammaD_2D = sut.avg_like_b2plot_2D(state['fna'][:, :, 1, 1])
+        # fluxConv = sut.avg_like_b2plot_2D(np.sum(xport['vlay'][:, :] * state['na'][:, :, :] * z[:, :, :], axis=2))
+
+        # Get total integrated radial energy flux (2D arrays)
+
+        # na = np.sum(state['na'][:, :, :], axis=2)
+        Qe_2D = sut.avg_like_b2plot_2D(state['fhe'][:, :, 1])
+        Qi_2D = sut.avg_like_b2plot_2D(state['fhi'][:, :, 1])
+        Qtot_2D = Qe_2D + Qi_2D
+
+        Qconv_2D_ = 2.5 * np.sum(state['fna'][:, :, 1, :] * z[:, :, :], axis=2) * state['te'] + \
+                    2.5 * np.sum(state['fna'][:, :, 1, :], axis=2) * state['ti'] # T in state file is in J
+        Qconv_2D = sut.avg_like_b2plot_2D(Qconv_2D_)
+
+        # Integrate poloidally for each region
+
+        gamma_e_core = np.sum(gamma_e_2D[npol_wdiv : npol_wdiv+npol_core, 1:nrad_core], axis=0)
+        gamma_e_sol = np.sum(gamma_e_2D[1:-1, nrad_core:-1], axis=0)
+        gamma_e_pfr = np.sum(gamma_e_2D[1:npol_wdiv, 1:nrad_core], axis=0) + \
+                      np.sum(gamma_e_2D[npol_wdiv+npol_core:-1, 1:nrad_core], axis=0)
+
+        gammaD_core = np.sum(gammaD_2D[npol_wdiv : npol_wdiv+npol_core, 1:nrad_core], axis=0)
+        gammaD_sol = np.sum(gammaD_2D[1:-1, nrad_core:-1], axis=0)
+        gammaD_pfr = np.sum(gammaD_2D[1:npol_wdiv, 1:nrad_core], axis=0) + \
+                     np.sum(gammaD_2D[npol_wdiv+npol_core:-1, 1:nrad_core], axis=0)
+
+        Q_core = np.sum(Qtot_2D[npol_wdiv : npol_wdiv+npol_core, 1:nrad_core], axis=0)
+        Q_sol = np.sum(Qtot_2D[1:-1, nrad_core:-1], axis=0)
+        Q_pfr = np.sum(Qtot_2D[1:npol_wdiv, 1:nrad_core], axis=0) + \
+                np.sum(Qtot_2D[npol_wdiv+npol_core:-1, 1:nrad_core], axis=0)
+
+        Q_conv_core = np.sum(Qconv_2D[npol_wdiv:npol_wdiv+npol_core, 1:nrad_core], axis=0)
+        Q_conv_sol = np.sum(Qconv_2D[1:-1, nrad_core:-1], axis=0)
+
+        Qtot = np.concatenate((Q_core, Q_sol))
+        Qconv = np.concatenate((Q_conv_core, Q_conv_sol))
+        gamma_e = np.concatenate((gamma_e_core, gamma_e_sol))
+        gammaD = np.concatenate((gammaD_core, gammaD_sol))
+
         self.data['solpsData']['profiles']['x_intflux'] = np.array(x_intflux)
+        self.data['solpsData']['profiles']['Qconv'] = np.array(Qconv)
         self.data['solpsData']['profiles']['Qtot'] = np.array(Qtot)
         self.data['solpsData']['profiles']['Qpfr'] = np.array(Q_pfr)
-        self.data['solpsData']['profiles']['gammaD_tot'] = np.array(gammaD_tot)
+        self.data['solpsData']['profiles']['gamma_e'] = np.array(gamma_e)
+        self.data['solpsData']['profiles']['gammaD'] = np.array(gammaD)
         self.data['solpsData']['profiles']['gammaD_pfr'] = np.array(gammaD_pfr)
 
         if plotit:
@@ -1815,33 +1853,47 @@ class SOLPSxport:
                                  flux is compared to the separatrix particle flux rather than the core flux
         """
         psin = self.data['solpsData']['psiSOLPS'][1:-1]
-        gammaD_tot = self.data['solpsData']['profiles']['gammaD_tot']
+        gammaD = self.data['solpsData']['profiles']['gammaD']
+        gamma_e = self.data['solpsData']['profiles']['gamma_e']
         Qtot = self.data['solpsData']['profiles']['Qtot']
+        Qconv = self.data['solpsData']['profiles']['Qconv']
         nrad = len(psin)
 
         f, ax = plt.subplots(2, sharex=True)
 
-        ax[0].plot(psin, gammaD_tot / 1e21,'k', lw=3)
-        ax[1].plot(psin, Qtot/1e6, 'r', lw=3)
+        ax[0].plot(psin, gamma_e / 1e21,'k', lw=3, label='Total e$^-$')
+        ax[0].plot(psin, gammaD / 1e21,'b', lw=2, label='D$^+$')
+
+        ax[1].plot(psin, Qtot/1e6, 'r', lw=3, label='Total')
+        ax[1].plot(psin, Qconv/1e6, 'm', lw=2, label='Convective')
 
         ax[0].set_xticks(xticks)
         ax[0].set_xlim([np.min(psin) - 0.01, np.max(psin) + 0.004])
-        ax[0].set_ylabel('$\Gamma_{tot}$ (10$^{21}$ e$^-$/s)')
-        if gammaD_tot[0] > threshold_core_gamma:
-            ax[0].text(np.min(psin), 0.2*np.max(gammaD_tot/1e21),
-                       'Injected D particles escaping domain radially: {:4.1f}%'.format(100*gammaD_tot[-1]/gammaD_tot[0]), fontsize=12)
+        ax[0].set_ylabel('$\Gamma_{radial}$ (10$^{21}$ e$^-$/s)')
+        ax[0].legend(loc='upper left',fontsize=12)
+        if gammaD[0] > threshold_core_gamma:
+            ax[0].text(np.min(psin), 0.2*np.max(gammaD/1e21),
+                       ' Core D+ particle flux escaping domain radially: {:4.1f}%'.format(100*gammaD[-1]/gammaD[0]),
+                       horizontalalignment='left', fontsize=12)
         else:
-            ax[0].text(np.min(psin), 0.2*np.max(gammaD_tot/1e21),
-                       'Sep. D particle flux escaping domain radially: {:4.1f}%'.format(100*gammaD_tot[-1]/gammaD_tot[nrad/2]), fontsize=12)
+            print('assuming same number of radial cells in core and sol')
+            ax[0].text(np.min(psin), 0.2*np.max(gammaD/1e21),
+                       ' Sep. D+ particle flux escaping domain radially: {:4.1f}%'.format(100*gammaD[-1]/gammaD[nrad/2]),
+                       horizontalalignment='left', fontsize=12)
 
-        ax[1].set_ylabel('Q$_{tot}$ (MW)')
-        ax[1].text(np.min(psin), 0.2*np.max(Qtot/1e6),
-                   'Injected energy escaping domain radially: {:4.1f}%'.format(100*Qtot[-1]/Qtot[0]), fontsize=12)
+        ax[1].set_ylabel('Q$_{radial}$ (MW)')
+        ax[1].text(np.min(psin), 1.08*np.max(Qtot/1e6),
+                   ' Injected energy escaping domain radially: {:4.1f}% ({:4.1f}% conv.)'.format(100*Qtot[-1]/Qtot[0], 100*Qconv[-1]/Qtot[0]),
+                   horizontalalignment='left', verticalalignment='bottom', fontsize=12)
+        ax[1].set_ylim([0, 1.23*np.max(Qtot/1e6)])
         ax[1].set_xlabel('$\psi_N$')
+        ax[1].legend(loc='center left',fontsize=12)
         for i in range(2):
             ax[i].grid('on')
             ylims=ax[i].get_ylim()
-            ax[i].set_ylim([0,ylims[1]])
+            ax[i].set_ylim([0, ylims[1]])
+            ax[i].plot([np.min(psin), np.min(psin)], [0, ylims[1]], '--k', lw=1)
+            ax[i].plot([np.max(psin), np.max(psin)], [0, ylims[1]], '--k', lw=1)
         plt.tight_layout()
 
         plt.show(block=figblock)
