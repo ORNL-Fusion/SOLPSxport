@@ -291,18 +291,27 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
     print("Checking particle and energy fluxes through the North boundary")
     xp.get_integrated_radial_fluxes(plotit=plot_fluxes, dsa=dsa, geo=geo, state=state, figblock=figblock)
 
-    if 'gammaD_tot' in xp.data['solpsData']['profiles'].keys():
-        gammaD_tot = xp.data['solpsData']['profiles']['gammaD_tot']
+    # gammaD = xp.data['solpsData']['profiles']['gammaD']
+    # Qtot = xp.data['solpsData']['profiles']['Qtot']
+    #
+    # if gammaD[0] > 1e19:
+    #     print(' Core D+ particle flux escaping domain radially: {:4.1f}%'.format(100 * gammaD[-1] / gammaD[0]))
+    # else:
+    #     print('assuming same number of radial cells in core and sol')
+    #     print(' Sep. D+ particle flux escaping domain radially: {:4.1f}%'.format(100 * gammaD[-1] / gammaD[len(gammaD) / 2]))
+
+    if 'gammaD' in xp.data['solpsData']['profiles'].keys():
+        gammaD = xp.data['solpsData']['profiles']['gammaD']
 
         # If the core D+ particle flux is less than 5% of the peak, then the radially escaping flux is compared to
         # the separatrix particle flux rather than the core flux
 
-        if gammaD_tot[0] > 0.05*np.max(gammaD_tot):
-            print("\nInjected D particles escaping radial grid boundary: {:4.1f}%".format(100*gammaD_tot[-1] / gammaD_tot[0]))
+        if gammaD[0] > 0.05*np.max(gammaD):
+            print("\nInjected D particles escaping radial grid boundary: {:4.1f}%".format(100*gammaD[-1] / gammaD[0]))
         else:
-            print('\nSep. D particle flux escaping radial grid boundary: {:4.1f}%'.format(100*gammaD_tot[-1]/gammaD_tot[len(psin_solps)/2]))
+            print('\nSep. D particle flux escaping radial grid boundary: {:4.1f}%'.format(100*gammaD[-1]/gammaD[len(psin_solps)/2]))
 
-        print("Injected energy flux escaping radial grid boundary: {:4.1f}%".
+        print("Injected energy flux escaping radial grid boundary: {:4.1f}%\n".
               format(100*xp.data['solpsData']['profiles']['Qtot'][-1]/xp.data['solpsData']['profiles']['Qtot'][0]))
 
 

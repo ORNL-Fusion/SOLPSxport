@@ -1861,11 +1861,11 @@ class SOLPSxport:
 
         f, ax = plt.subplots(2, sharex=True)
 
-        ax[0].plot(psin, gamma_e / 1e21,'k', lw=3, label='Total e$^-$')
         ax[0].plot(psin, gammaD / 1e21,'b', lw=2, label='D$^+$')
+        ax[0].plot(psin, gamma_e / 1e21,'k', lw=3, label='Total e$^-$')
 
-        ax[1].plot(psin, Qtot/1e6, 'r', lw=3, label='Total')
         ax[1].plot(psin, Qconv/1e6, 'm', lw=2, label='Convective')
+        ax[1].plot(psin, Qtot/1e6, 'r', lw=3, label='Total')
 
         ax[0].set_xticks(xticks)
         ax[0].set_xlim([np.min(psin) - 0.01, np.max(psin) + 0.004])
