@@ -63,7 +63,7 @@ class SOLPSxport:
     def getSOLPSlast10Profs(self, plotit = False, use_existing_last10 = False):
         """
         Generates and reads the .last10 files (produced by running '2d_profiles', which looks
-        at the last 10 time steps in the run.log file)
+        at the last 10 time steps)
         """
         working = str(self.data['workdir'])
 
@@ -121,71 +121,156 @@ class SOLPSxport:
             last10_dic['ki_old'] = np.array(ki_old_)
 
         self.data['solpsData']['last10'] = last10_dic
-        
+
         if plotit:
-            if 'psiSOLPS' in self.data['solpsData'].keys():
-                psi = self.data['solpsData']['psiSOLPS']
+            self.plot_last10_profs()
 
-                f, ax = plt.subplots(2, 3, sharex = 'all')
-                ax[0, 0].plot(psi, ne / 1.0e19, 'r', lw = 2, label = 'SOLPS')
-                ax[0, 0].set_ylabel('n$_e$ (10$^{19}$ m$^{-3}$)')
-                ax[0, 0].grid('on')
+    # ----------------------------------------------------------------------------------------
 
-                ax[1, 0].plot(psi, dn, '-ok', lw = 2)
-                ax[1, 0].set_ylabel('D')
-                ax[1, 0].set_xlabel('$\psi_N$')
+    def getlast10profs_b2time(self, reject_fewer_than_10=True, plotit=False):
+        """
+        Get outboard midplane profiles from b2time, averaged over final 10 time steps
+        """
+        n_to_average = 10
 
-                ax[0, 1].plot(psi, te / 1.0e3, 'r', lw = 2, label = 'SOLPS')
-                ax[0, 1].set_ylabel('Te (keV)')
+        import scipy.io
+        with scipy.io.netcdf_file('b2time.nc') as b2t:
+            ne_nc = b2t.variables['ne3da'].data.copy()
+            dn_nc = b2t.variables['dn3da'].data.copy()
+            te_nc = b2t.variables['te3da'].data.copy()
+            ke_nc = b2t.variables['ke3da'].data.copy()
+            ti_nc = b2t.variables['ti3da'].data.copy()
+            ki_nc = b2t.variables['ki3da'].data.copy()
 
-                ax[1, 1].plot(psi, ke, 'b', lw = 2)
-                ax[1, 1].set_ylabel('$\chi_e$')
-                ax[1, 1].set_xlabel('$\psi_N$')
-                ax[1, 1].set_xlim([np.min(psi) - 0.01, np.max(psi) + 0.01])
+        if len(ne_nc[:, 0]) < 10:
+            if reject_fewer_than_10:
+                print('ERROR: Fewer than 10 time steps were run in the most recent SOLPS call ({0} in b2time.nc)'.format(len(ne_nc[:, 0])))
+                print("  Run again for at least 10 steps, or set flag 'reject_less_than_10' to False")
+                return
+            else:
+                print("WARNING: Fewer than 10 time steps were run in the most recent SOLPS call ({0} in b2time.nc)".format(len(ne_nc[:, 0])))
+                print("  Because flag 'reject_less_than_10' was set to False, averaging {0} time steps".format(len(ne_nc[:, 0])))
+                n_to_average = len(ne_nc[:, 0])
 
-                ax[0, 2].plot(psi, ti / 1.0e3, 'r', lw = 2, label = 'SOLPS')
-                ax[0, 2].set_ylabel('Ti (keV)')
+        ne = np.mean(ne_nc[-n_to_average:,:], axis=0)
+        dn = np.mean(dn_nc[-n_to_average:,:], axis=0)
+        te = np.mean(te_nc[-n_to_average:,:], axis=0) / eV
+        ke = np.mean(ke_nc[-n_to_average:,:], axis=0)
+        ti = np.mean(ti_nc[-n_to_average:,:], axis=0) / eV
+        ki = np.mean(ki_nc[-n_to_average:,:], axis=0)
 
-                ax[1, 2].plot(psi, ki, 'b', lw = 2)
-                ax[1, 2].set_ylabel('$\chi_i$')
-                ax[1, 2].set_xlabel('$\psi_N$')
-                ax[0, 0].set_title('last10 profiles')
-                plt.tight_layout()
-                
-                for i in range(2):
-                    for j in range(3):
-                        ax[i,j].grid('on')
-                        
+        rx = sut.read_dsa('dsa')  # Not 100% sure this is always correct, but it seems to match for my case
+
+        last10_dic = {'rx':rx,'ne':ne,'dn':dn,'te':te,'ke':ke,'ti':ti,'ki':ki}
+
+        # If last10.old files exist, read these too
+        if os.path.isfile('ne3da.last10.old'):
+            rx, ne_old_ = sut.readProf('ne3da.last10.old')
+            rx, dn_old_ = sut.readProf('dn3da.last10.old')
+            rx, te_old_ = sut.readProf('te3da.last10.old')
+            rx, ke_old_ = sut.readProf('ke3da.last10.old')
+            rx, ti_old_ = sut.readProf('ti3da.last10.old')
+            rx, ki_old_ = sut.readProf('ki3da.last10.old')
+
+            last10_dic['ne_old'] = np.array(ne_old_)
+            last10_dic['dn_old'] = np.array(dn_old_)
+            last10_dic['te_old'] = np.array(te_old_)
+            last10_dic['ke_old'] = np.array(ke_old_)
+            last10_dic['ti_old'] = np.array(ti_old_)
+            last10_dic['ki_old'] = np.array(ki_old_)
+
+        self.data['solpsData']['last10'] = last10_dic
+
+        if plotit:
+            self.plot_last10_profs()
+
+    # ----------------------------------------------------------------------------------------
+
+    def plot_last10_profs(self, plot_d_over_chi = False):
+
+        if 'psiSOLPS' in self.data['solpsData'].keys():
+            psi = self.data['solpsData']['psiSOLPS']
+
+            f, ax = plt.subplots(2, 3, sharex = 'all')
+            ax[0, 0].plot(psi, self.data['solpsData']['last10']['ne'] / 1.0e19, 'r', lw = 2, label = 'SOLPS')
+            ax[0, 0].set_ylabel('n$_e$ (10$^{19}$ m$^{-3}$)')
+            ax[0, 0].grid('on')
+
+            ax[1, 0].plot(psi, self.data['solpsData']['last10']['dn'], '-ok', lw = 2)
+            ax[1, 0].set_ylabel('D')
+            ax[1, 0].set_xlabel('$\psi_N$')
+
+            ax[0, 1].plot(psi, self.data['solpsData']['last10']['te'] / 1.0e3, 'r', lw = 2, label = 'SOLPS')
+            ax[0, 1].set_ylabel('Te (keV)')
+
+            ax[1, 1].plot(psi, self.data['solpsData']['last10']['ke'], 'b', lw = 2)
+            ax[1, 1].set_ylabel('$\chi_e$')
+            ax[1, 1].set_xlabel('$\psi_N$')
+            ax[1, 1].set_xlim([np.min(psi) - 0.01, np.max(psi) + 0.01])
+
+            ax[0, 2].plot(psi, self.data['solpsData']['last10']['ti'] / 1.0e3, 'r', lw = 2, label = 'SOLPS')
+            ax[0, 2].set_ylabel('Ti (keV)')
+
+            ax[1, 2].plot(psi, self.data['solpsData']['last10']['ki'], 'b', lw = 2)
+            ax[1, 2].set_ylabel('$\chi_i$')
+            ax[1, 2].set_xlabel('$\psi_N$')
+            ax[0, 0].set_title('last10 profiles')
+            plt.tight_layout()
+
+            for i in range(2):
+                for j in range(3):
+                    ax[i,j].grid('on')
+
+            if plot_d_over_chi:
                 plt.figure()
-                plt.plot(psi, dn / ke, 'k', lw=3, label = 'D / $\chi_e$')
-                plt.plot(psi, dn / ki, 'r', lw=3, label = 'D / $\chi_i$')
+                plt.plot(psi, self.data['solpsData']['last10']['dn'] / self.data['solpsData']['last10']['ke'],
+                         'k', lw=3, label = 'D / $\chi_e$')
+                plt.plot(psi, self.data['solpsData']['last10']['dn'] / self.data['solpsData']['last10']['ki'],
+                         'r', lw=3, label = 'D / $\chi_i$')
                 plt.grid('on')
                 ax[0, 0].set_xticks(np.arange(0.84, 1.05, 0.04))
                 plt.legend(loc='best')
-                        
-            else:
-                f, ax = plt.subplots(3, sharex = 'all')
-                ax[0].plot(rx, ne*1e-19, '-kx', lw=2)
-                ax[0].set_ylabel('n$_e$ (10$^{19}$ m$^{-3}$)')
-                ax[0].grid('on')
-                
-                ax[1].plot(rx, te, '-rx', lw=2, label = 'Te')
-                ax[1].plot(rx, ti, '-bx', lw=2, label = 'Ti')
-                ax[1].set_ylabel('T (eV)')
-                ax[1].legend(loc='best')
-                ax[1].grid('on')
 
-                ax[2].plot(rx, dn, '-kx', lw=3, label = 'dn')
-                ax[2].plot(rx, ke, '-gx', lw=3, label = 'ke')
-                ax[2].plot(rx, ki, '-mx', lw=1, label = 'ki')
-                ax[2].legend(loc='best')
-                ax[2].set_ylabel('D or $\chi$')
-                plt.grid('on')
-                plt.tight_layout()
-    
-                ax[-1].set_xlabel('rx')
-                
-            plt.show(block = False)
+        else:
+            rx = self.data['solpsData']['last10']['rx']
+
+            f, ax = plt.subplots(3, sharex = 'all')
+            ax[0].plot(rx, self.data['solpsData']['last10']['ne']*1e-19, '-kx', lw=2)
+            ax[0].set_ylabel('n$_e$ (10$^{19}$ m$^{-3}$)')
+            ax[0].grid('on')
+
+            ax[1].plot(rx, self.data['solpsData']['last10']['te'], '-rx', lw=2, label = 'Te')
+            ax[1].plot(rx, self.data['solpsData']['last10']['ti'], '-bx', lw=2, label = 'Ti')
+            ax[1].set_ylabel('T (eV)')
+            ax[1].legend(loc='best')
+            ax[1].grid('on')
+
+            ax[2].plot(rx, self.data['solpsData']['last10']['dn'], '-kx', lw=3, label = 'dn')
+            ax[2].plot(rx, self.data['solpsData']['last10']['ke'], '-gx', lw=3, label = 'ke')
+            ax[2].plot(rx, self.data['solpsData']['last10']['ki'], '-mx', lw=1, label = 'ki')
+            ax[2].legend(loc='best')
+            ax[2].set_ylabel('D or $\chi$')
+            plt.grid('on')
+            plt.tight_layout()
+
+            ax[-1].set_xlabel('rx')
+
+        plt.show(block = False)
+
+    # ----------------------------------------------------------------------------------------
+
+    def write_last10files(self, file_appendix='3da.last10'):
+        """
+        Write .last10 files (for documenting previous iterations)
+        """
+        for prof in ['ne','dn','te','ke','ti','ki']:
+            rx = self.data['solpsData']['last10']['rx']
+            pval = self.data['solpsData']['last10'][prof]
+
+            with open(self.data['workdir'] + '/' + prof+file_appendix, 'w') as f:
+                for i in range(len(rx)):
+                    f.write(' ' + str(rx[i]) + '    ' + str(pval[i]) + '\n')
+                f.write('\n')
         
     # ----------------------------------------------------------------------------------------
     
@@ -1062,8 +1147,10 @@ class SOLPSxport:
                         mismatch of the DC offset of the profile. Since these routines match the gradients
                         everywhere, there needs to be some way to set the scalar offset of the profile for flux BC.
                         This should ideally be done by modifying BCCON, BCENE and BCENI in b2.boundary.parameters,
-                        but this input can sometimes improve agreement by modifying flux off the grid without
-                        changing those
+                        but this input does more or less the same thing to improve agreement by modifying flux off
+                        the grid without changing those inputs
+                        It's more effective at fixing Te and Ti profiles than density, because the energy disappears
+                        from the system, while the particles are reemitted as neutrals
           vrc_mag:      Magnetude of the carbon velocity pinch
                         (shape and position are still hard coded)
         """

@@ -95,7 +95,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          Dn_min=0.001, vrc_mag=0.0, Dn_max=200, use_ratio_bc = True,
          chie_use_grad = False, chii_use_grad = False, new_b2xportparams = True,
          chie_min = 0.01, chii_min = 0.01, chie_max = 400, chii_max = 400,
-         reduce_Ti_fileloc = None, update_old_last10s = False,
+         reduce_Ti_fileloc = None, update_old_last10s = False, reject_fewer_than_10=True,
          fractional_change = 1, elec_prof_rad_shift = 0, ti_fileloc = None,
          impurity_list = ['c'], use_existing_last10=False, plot_xport_coeffs=True,
          plotall=False, plot_fluxes = False, verbose=False, figblock=False,
@@ -145,6 +145,8 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                         *On GA clusters (Iris and Omega), example file is located here:
                         '/fusion/projects/results/solps-iter-results/wilcoxr/T_D_C_ratio.txt'
       update_old_last10s  Set to True to copy the last10 files to last10.old for comparison with the next iteration
+      reject_fewer_than_10  Stops everything if fewer than 10 time steps were run on most recent SOLPS call
+                            (efault = True)
       fractional_change Set to number smaller than 1 if the incremental change is too large and
                         you want to take a smaller step
       elec_prof_rad_shift: Apply a radial shift to experimental electron profiles
@@ -212,8 +214,13 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
     except Exception as err:
         print('Exiting from SOLPSxport_dr\n')
         sys.exit(err)
-    print("Running getSOLPSlast10Profs")
-    xp.getSOLPSlast10Profs(plotit=plotall, use_existing_last10=use_existing_last10)
+    if use_existing_last10:
+        print("Running getSOLPSlast10Profs")
+        xp.getSOLPSlast10Profs(plotit=plotall, use_existing_last10=use_existing_last10)
+    else:
+        print("Getting OMP profiles from last 10 time steps in b2time")
+        xp.getlast10profs_b2time(reject_fewer_than_10=reject_fewer_than_10, plotit=plotall)
+        xp.write_last10files()
     # xp.getProfsOMFIT(prof_folder = prof_folder, prof_filename_prefix = prof_filename_prefix,
     #                  min_npsi = 100, psiMax = 1.05, plotit = plotall)
     if profiles_fileloc is None:  # try to call MDSplus only if no profiles_fileloc is given
@@ -238,7 +245,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
         xp.load_ti(ti_fileloc=ti_fileloc, verbose=True)
 
     if ti_eq_te:
-        print("** Forcing Ti = Te **")
+        print("** Forcing target Ti = Te **")
         xp.data['expData']['fitProfs']['tipsi'] = xp.data['expData']['fitPsiProf']
         xp.data['expData']['fitProfs']['tiprof'] = xp.data['expData']['fitProfs']['teprof']
 
@@ -324,7 +331,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
     interp_te_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'], xp.data['solpsData']['last10']['te'])
     interp_ti_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'], xp.data['solpsData']['last10']['ti'])
 
-    print("\nUsing electron profile shift of: %.3e (in psiN)\n"%elec_prof_rad_shift)
+    print("\nUsing electron profile shift of: %.3f (in psiN)\n"%elec_prof_rad_shift)
     print("        ne_sep (m^-3)   Te_sep (eV)   Ti_sep (eV)   ne_core (m^-3)")
     print("Expt:    {:.3e}       {:6.2f}        {:6.2f}        {:.3e}".format(interp_ne_expt(1.0-elec_prof_rad_shift)*1e20,
                                                                               interp_te_expt(1.0-elec_prof_rad_shift)*1000,
