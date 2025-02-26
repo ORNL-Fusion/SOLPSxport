@@ -2,9 +2,9 @@
 collection of utility routines for use with other SOLPS modules
 
 Several routines that used to be here have simpler/more robust duplicates in common libraries
-I've left those routines below but commented them out and given a good replacement option
+I've left those routines below but commented them out and given a good replacement option - RSW
 
-A. Sontag, R.S. Wilcox, J.D. Lore 2019-2023
+A. Sontag, R.S. Wilcox, J.D. Lore 2019-2025
 """
 
 from os import path, environ

@@ -1,10 +1,10 @@
 """
 This class is used by routines in 'SOLPSxport_dr.py' to read experimental data,
 read SOLPS data, and then calculate the updated radial transport coefficients to attempt
-to match SOLPS to the experimental profiles
+to match SOLPS to experimental profiles
 
-R.S. Wilcox, J.M. Canik and J.D. Lore 2020-2023
-contact: wilcoxr@fusion.gat.com
+R.S. Wilcox, J.M. Canik and J.D. Lore 2020-2025
+contact: wilcoxrs@ornl.gov
 """
 
 import os
@@ -196,14 +196,14 @@ class SOLPSxport:
             ax[0, 0].set_ylabel('n$_e$ (10$^{19}$ m$^{-3}$)')
             ax[0, 0].grid('on')
 
-            ax[1, 0].plot(psi, self.data['solpsData']['last10']['dn'], '-ok', lw = 2)
+            ax[1, 0].semilogy(psi, self.data['solpsData']['last10']['dn'], '-ok', lw = 2)
             ax[1, 0].set_ylabel('D')
             ax[1, 0].set_xlabel('$\psi_N$')
 
             ax[0, 1].plot(psi, self.data['solpsData']['last10']['te'] / 1.0e3, 'r', lw = 2, label = 'SOLPS')
             ax[0, 1].set_ylabel('Te (keV)')
 
-            ax[1, 1].plot(psi, self.data['solpsData']['last10']['ke'], 'b', lw = 2)
+            ax[1, 1].semilogy(psi, self.data['solpsData']['last10']['ke'], 'b', lw = 2)
             ax[1, 1].set_ylabel('$\chi_e$')
             ax[1, 1].set_xlabel('$\psi_N$')
             ax[1, 1].set_xlim([np.min(psi) - 0.01, np.max(psi) + 0.01])
@@ -211,7 +211,7 @@ class SOLPSxport:
             ax[0, 2].plot(psi, self.data['solpsData']['last10']['ti'] / 1.0e3, 'r', lw = 2, label = 'SOLPS')
             ax[0, 2].set_ylabel('Ti (keV)')
 
-            ax[1, 2].plot(psi, self.data['solpsData']['last10']['ki'], 'b', lw = 2)
+            ax[1, 2].semilogy(psi, self.data['solpsData']['last10']['ki'], 'b', lw = 2)
             ax[1, 2].set_ylabel('$\chi_i$')
             ax[1, 2].set_xlabel('$\psi_N$')
             ax[0, 0].set_title('last10 profiles')
@@ -1988,7 +1988,8 @@ class SOLPSxport:
     # ----------------------------------------------------------------------------------------
     
     def writeXport(self, new_filename = 'b2.transport.inputfile_new', fractional_change = 1, solps5_0 = False,
-                   scale_D = 1, chie_use_grad = False, chii_use_grad = False, chii_eq_chie = False):
+                   scale_D = 1, chie_use_grad = False, chii_use_grad = False, chii_eq_chie = False,
+                   update_d_only=False):
         """
         Write the b2.transport.inputfile using values saved in this object
         SOLPS5.0 was deprecated, need to modify this code if you want to write to runs that old
@@ -2001,6 +2002,7 @@ class SOLPSxport:
                              (when going from density BC to flux BC, need to reduce the transport by a
                              factor proportional to the difference in core flux between the two cases)
           chii_eq_chie       Set chi_i = chi_e, if ion data is bad or non-existent (default = False)
+          update_d_only     Do not update chi values (for early iterations when particle transport is way off)
         """
         # dictionary defining number of electrons for possible impurity species
         n_electrons = {'he':2, 'li':3, 'be':4, 'b':5, 'c':6, 'n':7, 'ne':10, 'ar':18, 'kr':36, 'w':74}
@@ -2056,6 +2058,10 @@ class SOLPSxport:
                 print('dn[{}] = {:e}'.format(i,dn[i]))
                 print('  Changed to dn[{}] = {:e}'.format(i,-dn[i]*1e-5))
                 dn[i] = -dn[i] * 1e-5
+
+            if update_d_only:
+                continue
+
             if ke[i] < 0:
                 print('Negative thermal diffusivity calculated! Modifying to a small positive number')
                 print('ke[{}] = {:e}'.format(i,ke[i]))
@@ -2151,14 +2157,16 @@ class SOLPSxport:
 
         # Heat fluxes
 
-        for j in species_nums:
-            inlines.append('ndata( 1, 3, {}) = {} ,\n'.format(j, len(rn)))
-            for i in range(len(rn)):
-                inlines.append("tdata(1, {}, 3, {}) = {:e} , tdata(2, {}, 3, {}) = {:e} ,\n".format(i+1, j, rn[i], i+1, j, ki[i]))
+        if not update_d_only:
 
-        inlines.append('ndata( 1, 4, 1) = {} ,\n'.format(len(rn)))
-        for i in range(len(rn)):
-            inlines.append("tdata(1, {}, 4, 1) = {:e} , tdata(2, {}, 4, 1) = {:e} ,\n".format(i+1, rn[i], i+1, ke[i]))
+            for j in species_nums:
+                inlines.append('ndata( 1, 3, {}) = {} ,\n'.format(j, len(rn)))
+                for i in range(len(rn)):
+                    inlines.append("tdata(1, {}, 3, {}) = {:e} , tdata(2, {}, 3, {}) = {:e} ,\n".format(i+1, j, rn[i], i+1, j, ki[i]))
+
+            inlines.append('ndata( 1, 4, 1) = {} ,\n'.format(len(rn)))
+            for i in range(len(rn)):
+                inlines.append("tdata(1, {}, 4, 1) = {:e} , tdata(2, {}, 4, 1) = {:e} ,\n".format(i+1, rn[i], i+1, ke[i]))
 
         # if carbon:
         #     # Ti is the same for all species, but n changes per species, so chi_i is set separately
