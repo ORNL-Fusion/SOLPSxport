@@ -461,6 +461,38 @@ def read_pfile(pfile_loc):
 # ----------------------------------------------------------------------------------------
 
 
+"""
+read .dat file from MAST 
+"""
+
+def read_mastfile(mastfile_loc):
+    with open(mastfile_loc, mode='r') as dfile:
+        lines = dfile.readlines()
+    
+    profiles = {}
+    nlines_tot = len(lines)
+    psi_n = np.zeros(nlines_tot)
+    ne = np.zeros(nlines_tot)
+    te = np.zeros(nlines_tot)
+    i = 0
+    
+    while i < nlines_tot:
+        r_line = lines[i].split()
+        psi_n[i] = float(r_line[0])
+        ne[i] = float(r_line[1])
+        te[i] = float(r_line[2])
+        i += 1
+
+    profiles['psi_normal'] = psi_n
+    profiles['electron_density(10^20/m^3)'] = ne
+    profiles['electron_temperature(KeV)'] = te
+    return profiles
+
+
+
+# ----------------------------------------------------------------------------------------
+
+
 def read_b2_transport_inputfile(infileloc, carbon=True):
     """
     Reads b2.transport.inputfile, outputs basic quantities as a dictionary
