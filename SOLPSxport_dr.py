@@ -97,8 +97,8 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          chie_min = 0.01, chii_min = 0.01, chie_max = 400, chii_max = 400,
          reduce_Ti_fileloc = None, update_old_last10s = False, reject_fewer_than_10=True,
          fractional_change = 1, elec_prof_rad_shift = 0, ti_fileloc = None,
-         impurity_list = ['c'], use_existing_last10=False, plot_xport_coeffs=True,
-         plotall=False, plot_fluxes = False, verbose=False, figblock=False,
+         impurity_list = [], use_existing_last10= False, plot_xport_coeffs=True,
+         plotall= True, plot_fluxes = False, verbose=False, figblock=False,
          rad_loc_for_exp_decay=1.0, ti_decay_len=0.015, te_decay_len = None, ne_decay_len = None,
          ti_decay_min=1, te_decay_min = 1, ne_decay_min = 1e18):
     """
@@ -236,8 +236,8 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
         xp.loadProfDBPedFit(profiles_fileloc, shotnum, ptimeid, prunid, verbose=True)
         print("Populating PedFits")
         xp.populatePedFits(nemod=nefit, temod=tefit, ncmod=ncfit, npsi=250, plotit=plotall)
-    # elif profiles_fileloc[:-5] == '.mast':
-    #     xp.readMastData(profiles_fileloc)
+    elif profiles_fileloc[-4:] == '.dat':
+        xp.readMastData(profiles_fileloc)
     else:
         print("Loading profiles from pfile")
         xp.load_pfile(profiles_fileloc, plotit=plotall)
