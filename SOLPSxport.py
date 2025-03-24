@@ -865,19 +865,17 @@ class SOLPSxport:
         Z_solps_top = 0.5 * (np.array(czLowerLeft) + np.array(czUpperLeft))
 
         # psiNinterp = interpolate.interp2d(gR, gZ, psiN, kind = 'cubic')
-        psiNinterp = interpolate.RectBivariateSpline(gR, gZ, np.transpose(psiN))
-        
-        
-        from IPython import embed; embed()
-        
-        psi_solps = np.zeros(ncells)
-        for i in range(ncells):
-            psi_solps_LL = psiNinterp(crLowerLeft[i], czLowerLeft[i])
-            psi_solps_UL = psiNinterp(crUpperLeft[i], czUpperLeft[i])
-            psi_solps[i] = np.mean([psi_solps_LL , psi_solps_UL])
+        # psiNinterp = interpolate.RectBivariateSpline(gR, gZ, np.transpose(psiN))
+        psiNinterp = interpolate.RegularGridInterpolator((gR, gZ), np.transpose(psiN))
         
         
         # from IPython import embed; embed()
+        
+        psi_solps = np.zeros(ncells)
+        for i in range(ncells):
+            psi_solps_LL = psiNinterp([crLowerLeft[i], czLowerLeft[i]])
+            psi_solps_UL = psiNinterp([crUpperLeft[i], czUpperLeft[i]])
+            psi_solps[i] = np.mean([psi_solps_LL , psi_solps_UL])
         
         
         self.data['solpsData']['crLowerLeft'] = np.array(crLowerLeft)
@@ -885,7 +883,6 @@ class SOLPSxport:
         self.data['solpsData']['dsa'] = np.array(dsa)
         self.data['solpsData']['psiSOLPS'] = np.array(psi_solps)
         
-        # from IPython import embed; embed()
         
                
         
@@ -1032,7 +1029,7 @@ class SOLPSxport:
             ax[1].plot(x_fTot, fluxTot, '-ko', lw = 2, label = 'Tot')
             ax[1].plot(x_fTot, fluxConv, '-bx', lw = 2, label = 'Conv')
             ax[1].legend(loc='best')
-            ax[1].set_ylabel('$\Gamma$')
+            ax[1].set_ylabel(r'$\Gamma$')
             ax[1].grid('on')
             ax[-1].set_xlabel('x')
             
@@ -1112,7 +1109,7 @@ class SOLPSxport:
                                 ', ' + str(self.timeid) + ' ms')
             
             ax[1].plot(x_nc, flux_carbon, '-kx', lw = 2, zorder = 2, label = 'Carbon flux')
-            ax[1].set_ylabel('$\Gamma_C$')
+            ax[1].set_ylabel(r'$\Gamma_C$')
             ax[1].grid('on')
             if 'fluxTot' in self.data['solpsData']['profiles']:
                 ax[1].plot(x_nc, self.data['solpsData']['profiles']['fluxTot'],
@@ -1601,7 +1598,7 @@ class SOLPSxport:
         ax[1, 1].semilogy(psi_solps, kenew_flux, '-ok', lw = 2, label = updated_flux_label)
         if include_gradient_method:
             ax[1, 1].semilogy(psi_solps, kenew_ratio, '-+c', lw = 1, label = 'Updated (gradients)')
-        ax[1, 1].set_ylabel('$\chi_e$ (m$^2$/s)')
+        ax[1, 1].set_ylabel(r'$\chi_e$ (m$^2$/s)')
         ax[1, 1].set_xlabel(r'$\psi_N$')
         ax[1, 1].set_xlim([np.min(psi_solps) - 0.01, np.max(psi_solps) + 0.01])
         ax[1, 1].set_ylim([min_ke/np.sqrt(headroom), max_ke*headroom])
@@ -1626,7 +1623,7 @@ class SOLPSxport:
             ax[1, 2].semilogy(psi_solps, kinew_flux, '-ok', lw = 2, label = updated_flux_label)
             if include_gradient_method:
                 ax[1, 2].semilogy(psi_solps, kinew_ratio, '-+c', lw = 1, label = 'Updated (gradients)')
-            ax[1, 2].set_ylabel('$\chi_i$ (m$^2$/s)')
+            ax[1, 2].set_ylabel(r'$\chi_i$ (m$^2$/s)')
             ax[1, 2].set_xlabel(r'$\psi_N$')
             ax[1, 2].set_xlim(xlims)
             ax[1, 2].set_ylim([min_ki/np.sqrt(headroom), max_ki*headroom])
@@ -1812,7 +1809,7 @@ class SOLPSxport:
         ax[0, 1].set_yticks(np.arange(0, max_temp * headroom + 0.2, 0.2))
 
         ax[1, 1].semilogy(psi_solps, kesolps, '-r', lw = 2)
-        ax[1, 1].set_ylabel('$\chi_e$')
+        ax[1, 1].set_ylabel(r'$\chi_e$')
 
         if include_ti:
             # ax[2].plot(psi_solps, tisolps, 'xr', mew = 2, ms = 10, label = 'SOLPS')
@@ -1828,7 +1825,7 @@ class SOLPSxport:
             ax[0, 2].set_yticks(np.arange(0, max_temp * headroom + 0.2, 0.2))
 
             ax[1, 2].semilogy(psi_solps, kisolps, '-r', lw = 2)
-            ax[1, 2].set_ylabel('$\chi_i$')
+            ax[1, 2].set_ylabel(r'$\chi_i$')
 
         for i in range(nprofs):
             ax[1, i].set_xlabel(r'$\psi_N$')
@@ -1974,7 +1971,7 @@ class SOLPSxport:
 
         ax[0].set_xticks(xticks)
         ax[0].set_xlim([np.min(psin) - 0.01, np.max(psin) + 0.004])
-        ax[0].set_ylabel('$\Gamma_{radial}$ (10$^{21}$ e$^-$/s)')
+        ax[0].set_ylabel(r'$\Gamma_{radial}$ (10$^{21}$ e$^-$/s)')
         ax[0].legend(loc='upper left',fontsize=12)
         if gammaD[0] > threshold_core_gamma:
             ax[0].text(np.min(psin), 0.2*np.max(gammaD/1e21),
