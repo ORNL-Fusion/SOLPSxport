@@ -198,22 +198,22 @@ class SOLPSxport:
 
             ax[1, 0].semilogy(psi, self.data['solpsData']['last10']['dn'], '-ok', lw = 2)
             ax[1, 0].set_ylabel('D')
-            ax[1, 0].set_xlabel('$\psi_N$')
+            ax[1, 0].set_xlabel(r'$\psi_N$')
 
             ax[0, 1].plot(psi, self.data['solpsData']['last10']['te'] / 1.0e3, 'r', lw = 2, label = 'SOLPS')
             ax[0, 1].set_ylabel('Te (keV)')
 
             ax[1, 1].semilogy(psi, self.data['solpsData']['last10']['ke'], 'b', lw = 2)
-            ax[1, 1].set_ylabel('$\chi_e$')
-            ax[1, 1].set_xlabel('$\psi_N$')
+            ax[1, 1].set_ylabel(r'$\chi_e$')
+            ax[1, 1].set_xlabel(r'$\psi_N$')
             ax[1, 1].set_xlim([np.min(psi) - 0.01, np.max(psi) + 0.01])
 
             ax[0, 2].plot(psi, self.data['solpsData']['last10']['ti'] / 1.0e3, 'r', lw = 2, label = 'SOLPS')
             ax[0, 2].set_ylabel('Ti (keV)')
 
             ax[1, 2].semilogy(psi, self.data['solpsData']['last10']['ki'], 'b', lw = 2)
-            ax[1, 2].set_ylabel('$\chi_i$')
-            ax[1, 2].set_xlabel('$\psi_N$')
+            ax[1, 2].set_ylabel(r'$\chi_i$')
+            ax[1, 2].set_xlabel(r'$\psi_N$')
             ax[0, 0].set_title('last10 profiles')
             plt.tight_layout()
 
@@ -224,9 +224,9 @@ class SOLPSxport:
             if plot_d_over_chi:
                 plt.figure()
                 plt.plot(psi, self.data['solpsData']['last10']['dn'] / self.data['solpsData']['last10']['ke'],
-                         'k', lw=3, label = 'D / $\chi_e$')
+                         'k', lw=3, label = r'D / $\chi_e$')
                 plt.plot(psi, self.data['solpsData']['last10']['dn'] / self.data['solpsData']['last10']['ki'],
-                         'r', lw=3, label = 'D / $\chi_i$')
+                         'r', lw=3, label = r'D / $\chi_i$')
                 plt.grid('on')
                 ax[0, 0].set_xticks(np.arange(0.84, 1.05, 0.04))
                 plt.legend(loc='best')
@@ -249,7 +249,7 @@ class SOLPSxport:
             ax[2].plot(rx, self.data['solpsData']['last10']['ke'], '-gx', lw=3, label = 'ke')
             ax[2].plot(rx, self.data['solpsData']['last10']['ki'], '-mx', lw=1, label = 'ki')
             ax[2].legend(loc='best')
-            ax[2].set_ylabel('D or $\chi$')
+            ax[2].set_ylabel(r'D or $\chi$')
             plt.grid('on')
             plt.tight_layout()
 
@@ -308,14 +308,20 @@ class SOLPSxport:
 
     # ----------------------------------------------------------------------------------------
 
-    # def readMastData(self):
-    #
-    #     self.data['expData']['fitPsiProf'] =
-    #     self.data['expData']['fitProfs']['neprof'] =
-    #     self.data['expData']['fitProfs']['teprof'] =
-    #
-    #     try:
-    #         self.data['expData']['fitProfs']['tiprof'] =
+    def readMastData(self, mastfile_loc):
+        self.timeid = mastfile_loc[mastfile_loc.rfind('_')+1:mastfile_loc.rfind('.')]
+
+        mastfile_dict = sut.read_mastfile(mastfile_loc)
+        self.data['expData']['fitPsiProf'] = mastfile_dict['psi_normal']
+        self.data['expData']['fitProfs']['neprof'] = mastfile_dict['electron_density(10^20/m^3)']
+        self.data['expData']['fitProfs']['teprof'] = mastfile_dict['electron_temperature(KeV)']
+
+        try:
+            self.data['expData']['fitProfs']['tipsi'] = mastfile_dict['psi_normal']
+            self.data['expData']['fitProfs']['tiprof'] = mastfile_dict['ion_temperature(KeV)']
+        except:
+            print('No Ti data in pfile, defaulting to Ti = Te')
+            self.data['expData']['fitProfs']['tiprof'] = self.data['expData']['fitProfs']['teprof']
 
     # ----------------------------------------------------------------------------------------
     
@@ -367,7 +373,7 @@ class SOLPSxport:
             ax[2].legend(loc = 'best')
             ax[2].grid('on')
         
-            ax[-1].set_xlabel('$\psi_n$')
+            ax[-1].set_xlabel(r'$\psi_n$')
             ax[0].set_xlims([np.min(rte_SOLPS) - 0.01, np.max(rte_SOLPS) + 0.01])
             plt.show(block = False)
 
@@ -450,7 +456,7 @@ class SOLPSxport:
             ax[1].plot(psiProf, teprof, '-r', lw = 2)
             ax[1].set_ylabel('T$_e$ (keV)')
             ax[1].grid('on')
-            ax[1].set_xlabel('$\psi_n$')
+            ax[1].set_xlabel(r'$\psi_n$')
             ax[1].set_xlim([0, psinMax+0.01])
             
             ax[0].set_title('Experimental Pedestal Fits')
@@ -575,7 +581,7 @@ class SOLPSxport:
                 plt.plot(tiexppsi, ti_reduced, '-xr', ms=8, mew=2, lw=2,
                          label='T$_D$ (inferred)')
             plt.plot(xrad, ti_mod, '-ob', lw=3, label = 'Final T$_D$')
-            plt.xlabel('$\psi_n$')
+            plt.xlabel(r'$\psi_n$')
             plt.ylabel('T$_i$ (keV)')
             plt.legend(loc='best')
             plt.grid('on')
@@ -769,13 +775,13 @@ class SOLPSxport:
                     ax[i].set_ylabel(fit)
                     ax[i].grid('on')
                     
-                ax[-1].set_xlabel('$\psi_n$')
+                ax[-1].set_xlabel(r'$\psi_n$')
                 ax[0].legend(loc='best')
                 plt.show(block=False)
 
     # ----------------------------------------------------------------------------------------
 
-    def calcPsiVals(self, plotit = False, dsa = None, b2mn = None, geo = None, verbose=True, write_to_file=None):
+    def calcPsiVals(self, plotit = True, dsa = None, b2mn = None, geo = None, verbose=True, write_to_file=None):
         """
         Get the locations of each grid cell in psin space
 
@@ -858,19 +864,31 @@ class SOLPSxport:
         R_solps_top = 0.5 * (np.array(crLowerLeft) + np.array(crUpperLeft))
         Z_solps_top = 0.5 * (np.array(czLowerLeft) + np.array(czUpperLeft))
 
-        psiNinterp = interpolate.interp2d(gR, gZ, psiN, kind = 'cubic')
-
+        # psiNinterp = interpolate.interp2d(gR, gZ, psiN, kind = 'cubic')
+        psiNinterp = interpolate.RectBivariateSpline(gR, gZ, np.transpose(psiN))
+        
+        
+        from IPython import embed; embed()
+        
         psi_solps = np.zeros(ncells)
         for i in range(ncells):
             psi_solps_LL = psiNinterp(crLowerLeft[i], czLowerLeft[i])
             psi_solps_UL = psiNinterp(crUpperLeft[i], czUpperLeft[i])
-            psi_solps[i] = np.mean([psi_solps_LL,psi_solps_UL])
-
+            psi_solps[i] = np.mean([psi_solps_LL , psi_solps_UL])
+        
+        
+        # from IPython import embed; embed()
+        
+        
         self.data['solpsData']['crLowerLeft'] = np.array(crLowerLeft)
         self.data['solpsData']['czLowerLeft'] = np.array(czLowerLeft)
         self.data['solpsData']['dsa'] = np.array(dsa)
         self.data['solpsData']['psiSOLPS'] = np.array(psi_solps)
-
+        
+        # from IPython import embed; embed()
+        
+               
+        
         if write_to_file:
             with open(write_to_file, 'w') as f:
                 for i in range(len(psi_solps)):
@@ -908,7 +926,7 @@ class SOLPSxport:
             plt.figure()
             plt.plot(R_solps_top, psi_solps, 'k', lw = 2)
             plt.xlabel('R at midplane (m)')
-            plt.ylabel('$\psi_N$')
+            plt.ylabel(r'$\psi_N$')
 
             plt.show(block = False)
     
@@ -1105,7 +1123,7 @@ class SOLPSxport:
             ax[2].grid('on')
             
             if 'psiSOLPS' in self.data['solpsData']:
-                ax[-1].set_xlabel('$\psi_n$')
+                ax[-1].set_xlabel(r'$\psi_n$')
             else:
                 ax[-1].set_xlabel('x')
             ax[0].set_xlim([np.min(x_nc) - 0.01, np.max(x_nc) + 0.01])
@@ -1402,15 +1420,15 @@ class SOLPSxport:
             plt.plot(psi_solps, gtiold / 1e3, label='gtiold')
             plt.plot(psi_solps, gteexp_solpslocs / 1e3, '--', lw=2, label='gteexp_solpslocs')
             plt.plot(psi_solps, gteold / 1e3, '--', lw=2, label='gteold')
-            plt.xlabel('$\psi_N$')
-            plt.ylabel('$\\nabla$T / $\\nabla\psi_N$')
+            plt.xlabel(r'$\psi_N$')
+            plt.ylabel(r'$\\nabla$T / $\\nabla\psi_N$')
             plt.legend(loc='best')
 
             plt.figure()
             plt.plot(tiexppsi, 1.0e3 * self.data['expData']['fitProfs']['tiprof'],
                      'k', lw=2, label='Ti measured')
             plt.plot(tiexppsi, tiexp, 'r', label='Ti_new')
-            plt.xlabel('$\psi_N$')
+            plt.xlabel(r'$\psi_N$')
             plt.ylabel('T$_i$ (keV)')
             plt.legend(loc='best')
 
@@ -1559,7 +1577,7 @@ class SOLPSxport:
         if include_gradient_method:
             ax[1, 0].semilogy(psi_solps, dnew_ratio, '-+c', lw = 1, label = 'Updated (gradients)')
         ax[1, 0].set_ylabel('D (m$^2$/s)')
-        ax[1, 0].set_xlabel('$\psi_N$')
+        ax[1, 0].set_xlabel(r'$\psi_N$')
         ax[1, 0].set_ylim([min_dn/np.sqrt(headroom), max_dn*headroom])
         ax[1, 0].grid('on')
         ax[0, 1].plot(teexppsi, teexp / 1.0e3, '--bo', lw = 1, label = 'Exp. Data')
@@ -1584,7 +1602,7 @@ class SOLPSxport:
         if include_gradient_method:
             ax[1, 1].semilogy(psi_solps, kenew_ratio, '-+c', lw = 1, label = 'Updated (gradients)')
         ax[1, 1].set_ylabel('$\chi_e$ (m$^2$/s)')
-        ax[1, 1].set_xlabel('$\psi_N$')
+        ax[1, 1].set_xlabel(r'$\psi_N$')
         ax[1, 1].set_xlim([np.min(psi_solps) - 0.01, np.max(psi_solps) + 0.01])
         ax[1, 1].set_ylim([min_ke/np.sqrt(headroom), max_ke*headroom])
         ax[1, 1].grid('on')
@@ -1609,7 +1627,7 @@ class SOLPSxport:
             if include_gradient_method:
                 ax[1, 2].semilogy(psi_solps, kinew_ratio, '-+c', lw = 1, label = 'Updated (gradients)')
             ax[1, 2].set_ylabel('$\chi_i$ (m$^2$/s)')
-            ax[1, 2].set_xlabel('$\psi_N$')
+            ax[1, 2].set_xlabel(r'$\psi_N$')
             ax[1, 2].set_xlim(xlims)
             ax[1, 2].set_ylim([min_ki/np.sqrt(headroom), max_ki*headroom])
             ax[1, 2].grid('on')
@@ -1710,7 +1728,7 @@ class SOLPSxport:
 
         ax[0].set_xticks(np.arange(0.84, 1.05, 0.04))
         ax[0].set_xlim([np.min(psi_solps) - 0.01, np.max(psi_solps) + 0.004])
-        ax[-1].set_xlabel('$\psi_N$')
+        ax[-1].set_xlabel(r'$\psi_N$')
         ax[0].set_title('Upstream profiles', fontsize=16)
         plt.tight_layout()
 
@@ -1813,7 +1831,7 @@ class SOLPSxport:
             ax[1, 2].set_ylabel('$\chi_i$')
 
         for i in range(nprofs):
-            ax[1, i].set_xlabel('$\psi_N$')
+            ax[1, i].set_xlabel(r'$\psi_N$')
             for j in range(2):
                 ax[j, i].grid('on')
 
@@ -1973,7 +1991,7 @@ class SOLPSxport:
                    ' Injected energy escaping domain radially: {:4.1f}% ({:4.1f}% conv.)'.format(100*Qtot[-1]/Qtot[0], 100*Qconv[-1]/Qtot[0]),
                    horizontalalignment='left', verticalalignment='bottom', fontsize=12)
         ax[1].set_ylim([0, 1.23*np.max(Qtot/1e6)])
-        ax[1].set_xlabel('$\psi_N$')
+        ax[1].set_xlabel(r'$\psi_N$')
         ax[1].legend(loc='center left',fontsize=12)
         for i in range(2):
             ax[i].grid('on')
