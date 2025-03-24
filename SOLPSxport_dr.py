@@ -259,7 +259,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
 
     print("Running calcXportCoeff")
     xp.calcXportCoef(plotit=plotall or plot_xport_coeffs, reduce_Ti_fileloc=reduce_Ti_fileloc, Dn_min=Dn_min,
-                     vrc_mag=vrc_mag, verbose=verbose, Dn_max=Dn_max,
+                     vrc_mag=vrc_mag, verbose=verbose, Dn_max=Dn_max, update_d_only=update_d_only,
                      fractional_change=fractional_change, elec_prof_rad_shift=elec_prof_rad_shift,
                      chii_min=chii_min, chii_max=chii_max, chie_min=chie_min, chie_max=chie_max,
                      chii_eq_chie=chii_eq_chie, figblock=figblock, use_ratio_bc=use_ratio_bc,

@@ -1116,7 +1116,7 @@ class SOLPSxport:
     
     def calcXportCoef(self, plotit = True, Dn_min = 0.001, chie_min = 0.01, chii_min = 0.01,
                       Dn_max = 100, chie_max = 400, chii_max = 400, vrc_mag=0.0, 
-                      reduce_Ti_fileloc = None, plot_gradient_method = False,
+                      reduce_Ti_fileloc = None, plot_gradient_method = False, update_d_only=False,
                       fractional_change = 1, elec_prof_rad_shift = 0, chii_eq_chie = False,
                       use_ratio_bc = True, debug_plots = False, verbose = False, figblock = False,
                       ti_decay_len = 0.015, te_decay_len = None, ne_decay_len = None, rad_loc_for_exp_decay = 1.0,
@@ -1392,7 +1392,7 @@ class SOLPSxport:
                                                'vr_carbon': vr_carbon, 'D_carbon': D_carbon,
                                                'limits': coef_limits, 'elec_prof_shift': elec_prof_rad_shift}
         if plotit:
-            self.plotXportCoef(figblock=figblock, plot_Ti = not chii_eq_chie,
+            self.plotXportCoef(figblock=figblock, plot_Ti = not chii_eq_chie, update_d_only=update_d_only,
                                plot_older=('ne_old' in self.data['solpsData']['last10'].keys()),
                                include_gradient_method=plot_gradient_method)
 
@@ -1455,7 +1455,7 @@ class SOLPSxport:
     # ----------------------------------------------------------------------------------------
 
     def plotXportCoef(self, figblock=False, figsize=(14,7), plot_Ti = True, plot_older = False,
-                      include_gradient_method = False):
+                      include_gradient_method = False, update_d_only = False):
         """
         Plot the upstream profiles from SOLPS compared to the experiment
         along with the corresponding updated transport coefficients
