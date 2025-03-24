@@ -97,8 +97,8 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          chie_min = 0.01, chii_min = 0.01, chie_max = 400, chii_max = 400,
          reduce_Ti_fileloc = None, update_old_last10s = False, reject_fewer_than_10=True,
          fractional_change = 1, elec_prof_rad_shift = 0, ti_fileloc = None,
-         impurity_list = [], use_existing_last10= False, plot_xport_coeffs=True,
-         plotall= True, plot_fluxes = False, verbose=False, figblock=False,
+         impurity_list = ['c'], use_existing_last10= False, plot_xport_coeffs=True,
+         plotall=False, plot_fluxes = False, verbose=False, figblock=False,
          rad_loc_for_exp_decay=1.0, ti_decay_len=0.015, te_decay_len = None, ne_decay_len = None,
          ti_decay_min=1, te_decay_min = 1, ne_decay_min = 1e18):
     """
