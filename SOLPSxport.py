@@ -1415,7 +1415,7 @@ class SOLPSxport:
             plt.plot(psi_solps, gteexp_solpslocs / 1e3, '--', lw=2, label='gteexp_solpslocs')
             plt.plot(psi_solps, gteold / 1e3, '--', lw=2, label='gteold')
             plt.xlabel(r'$\psi_N$')
-            plt.ylabel('$\\nabla$T / $\\nabla\psi_N$')
+            plt.ylabel(r'$\\nabla$T / $\\nabla\psi_N$')
             plt.legend(loc='best')
 
             plt.figure()

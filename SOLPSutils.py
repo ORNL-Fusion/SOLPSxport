@@ -182,7 +182,7 @@ def readProf(fname, wdir='.'):
     for line in lines:
         elements = line.split()
 
-        if elements[0] == '#':
+        if not elements or elements[0].startswith('#'):
             pass
         else:
             x.append(float(elements[0]))
