@@ -145,7 +145,7 @@ class SOLPSxport:
         if len(ne_nc[:, 0]) < 10:
             if reject_fewer_than_10:
                 print('ERROR: Fewer than 10 time steps were run in the most recent SOLPS call ({0} in b2time.nc)'.format(len(ne_nc[:, 0])))
-                print("  Run again for at least 10 steps, or set flag 'reject_less_than_10' to False")
+                print("  Run again for at least 10 steps, or set flag 'reject_fewer_than_10' to False")
                 return
             else:
                 print("WARNING: Fewer than 10 time steps were run in the most recent SOLPS call ({0} in b2time.nc)".format(len(ne_nc[:, 0])))
