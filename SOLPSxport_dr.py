@@ -350,7 +350,6 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
 
 # --- Launch main() ----------------------------------------------------------------------
 
-
 if __name__ == '__main__':
     import argparse
 
@@ -393,7 +392,6 @@ if __name__ == '__main__':
              reduce_Ti_fileloc=args.tiratiofile, fractional_change=args.fractional_change, figblock=True)
 
 # ----------------------------------------------------------------------------------------
-
 
 def increment_run(new_coefficients = 'b2.transport.inputfile_new', update_old_last10s = True,
                   new_b2xportparams = True, ntim_new = 100, dtim_new = '1.0e-6'):
@@ -462,7 +460,6 @@ def increment_run(new_coefficients = 'b2.transport.inputfile_new', update_old_la
 
 # ----------------------------------------------------------------------------------------
 
-
 def update_old_last10_files():
     """
     Copy last10 files to .old so that previous profiles can be plotted on next call
@@ -473,7 +470,6 @@ def update_old_last10_files():
         shutil.copyfile(prof+'3da.last10', prof+'3da.last10.old')
 
 # ----------------------------------------------------------------------------------------
-
 
 def track_inputfile_iterations(rundir=None, impurity_list=['c'], cmap='viridis', Dn_scalar = 100):
     """
@@ -557,3 +553,22 @@ def track_inputfile_iterations(rundir=None, impurity_list=['c'], cmap='viridis',
 
     plt.show(block=False)
 
+# ----------------------------------------------------------------------------------------
+
+def plot_matching_case(solps_dir, gfile_loc, profiles_fileloc=None, shotnum=None, ptimeid=None, prunid=None,
+                       include_ti=False, plot_psi_mapping = False, b2fgmtry_loc='./b2fgmtry', b2timenc_loc='b2time.nc',
+                       xticks=np.arange(0.68, 1.21, 0.04), exp_elec_psin_shift=0, verbose=True):
+    """
+    Use this to show the final agreement with measurements
+    """
+    xp = sxp.SOLPSxport(solps_dir, gfile_loc)
+    if os.path.isfile('ne3da.last10'):
+        xp.getSOLPSlast10Profs()
+    else:
+        xp.getlast10profs_b2time(b2time_fileloc=b2timenc_loc, reject_fewer_than_10=False)
+    xp.loadProfDBPedFit(profiles_file=profiles_fileloc, shotnum=shotnum, timeid=ptimeid, runid=prunid, verbose=verbose)
+    xp.populatePedFits()
+    b2fgmtry = sut.read_b2fgmtry(b2fgmtry_loc)
+    xp.calcPsiVals(plotit=plot_psi_mapping, geo=b2fgmtry, verbose=verbose)
+
+    xp.plot_matching_case(include_ti=include_ti, xticks=xticks, exp_elec_psin_shift=exp_elec_psin_shift)
