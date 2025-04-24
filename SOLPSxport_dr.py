@@ -572,3 +572,38 @@ def plot_matching_case(solps_dir, gfile_loc, profiles_fileloc=None, shotnum=None
     xp.calcPsiVals(plotit=plot_psi_mapping, geo=b2fgmtry, verbose=verbose)
 
     xp.plot_matching_case(include_ti=include_ti, xticks=xticks, exp_elec_psin_shift=exp_elec_psin_shift)
+
+# ----------------------------------------------------------------------------------------
+
+def overplot_addtl_case(fignum, solps_dir, gfile_loc, linespec='-b', run_label = None, include_ti=False,
+                        plot_psi_mapping = False, b2fgmtry_loc='./b2fgmtry',b2timenc_loc='b2time.nc',
+                        verbose=True):
+    """
+    After you've run "plot_matching_case", run this to overplot additional SOLPS simulations,
+    comparing against the same experimental data
+
+    You'll need to manually adjust axis limits if they no longer fit with this new data
+    """
+    xp = sxp.SOLPSxport(solps_dir, gfile_loc)
+    if solps_dir[-1] != '/':
+        solps_dir += '/'
+    if os.path.isfile(solps_dir + 'ne3da.last10'):
+        xp.getSOLPSlast10Profs()
+    else:
+        xp.getlast10profs_b2time(b2time_fileloc=b2timenc_loc, reject_fewer_than_10=False)
+    b2fgmtry = sut.read_b2fgmtry(b2fgmtry_loc)
+    xp.calcPsiVals(plotit=plot_psi_mapping, geo=b2fgmtry, verbose=verbose)
+
+    psi_solps = xp.data['solpsData']['psiSOLPS']
+
+    ax = plt.figure(fignum).axes
+    ax[0].plot(psi_solps, xp.data['solpsData']['last10']['ne'] / 1.0e19, linespec, lw=2, zorder=3, label=run_label)
+    ax[0].legend(loc='best', fontsize=10)
+
+    ax[2].semilogy(psi_solps, xp.data['solpsData']['last10']['dn'], linespec, lw=2)
+    ax[1].plot(psi_solps, xp.data['solpsData']['last10']['te'] * 1.0e-3, linespec, lw=2, zorder=3, label=run_label)
+    ax[3].semilogy(psi_solps, xp.data['solpsData']['last10']['ke'], linespec, lw=2)
+
+    if include_ti: # Doesn't work yet
+        ax[2].plot(psi_solps, xp.data['solpsData']['last10']['ti'] * 1.0e-3, linespec, lw=2, zorder=3, label=run_label)
+        ax[5].semilogy(psi_solps, xp.data['solpsData']['last10']['ki'], linespec, lw=2)

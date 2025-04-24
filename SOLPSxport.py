@@ -399,9 +399,9 @@ class SOLPSxport:
 
         if psinMax is None:
             if 'psiSOLPS' in self.data['solpsData'].keys():
-                psinMax = np.max(self.data['solpsData']['psiSOLPS']) + 0.001
+                psinMax = np.max(self.data['solpsData']['psiSOLPS']) + 0.005
             else:
-                psinMax = 1.02
+                psinMax = 1.05
 
         psiProf = np.linspace(0, psinMax, npsi+1)
         
@@ -1808,7 +1808,7 @@ class SOLPSxport:
             ax[0, i].errorbar(self.data['expData']['fitVals'][rawdat_keys[i]]['x'] + exp_elec_psin_shift,
                               self.data['expData']['fitVals'][rawdat_keys[i]]['y'] * rawdat_scalars[i],
                               self.data['expData']['fitVals'][rawdat_keys[i]]['yerr'] * rawdat_scalars[i],
-                              xerr=None, fmt='o', ls='', c='k', mfc='None', mec='k',
+                              xerr=None, fmt='o', ls='', c='0.3', mfc='None', mec='0.3',
                               zorder=1, label='Experimental Data')
 
         ax[0, 0].plot(psi_data_fit + exp_elec_psin_shift, nefit / 1.0e19, '--k', lw=3, zorder=2, label='Experimental Fit')
