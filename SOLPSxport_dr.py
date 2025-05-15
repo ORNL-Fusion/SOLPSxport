@@ -61,6 +61,9 @@ be useful to do this all quickly
 R.S. Wilcox, J.M. Canik and J.D. Lore 2020-2025
 contact: wilcoxrs@ornl.gov
 
+The most up-to-date version of the code is located in a publicly available repository here, under an MIT license:
+https://github.com/ORNL-Fusion/SOLPSxport
+
 Reference for this procedure:
 https://doi.org/10.1016/j.jnucmat.2010.11.084
 """
@@ -552,6 +555,39 @@ def track_inputfile_iterations(rundir=None, impurity_list=['c'], cmap='viridis',
     plt.grid('on')
 
     plt.show(block=False)
+
+# ----------------------------------------------------------------------------------------
+
+def check_radial_fluxes(gfile_loc=None, b2fgmtry_loc=None, verbose=True, impurity_list=['c'],
+                        figblock=False):
+    """
+    Check the radial particle and energy flux profiles for an existing SOLPS simulation
+    """
+
+    xp = sxp.SOLPSxport(workdir=os.getcwd(), gfile_loc=gfile_loc, impurity_list=impurity_list)
+
+    if verbose:
+        print("Reading SOLPS output")
+    try:
+        dsa = sut.read_dsa("dsa")
+        b2mn = sut.scrape_b2mn("b2mn.dat")
+        if b2fgmtry_loc is None:
+            geo = sut.read_b2fgmtry("../baserun/b2fgmtry")
+        else:
+            geo = sut.read_b2fgmtry(b2fgmtry_loc)
+        state = sut.read_b2fstate("b2fstate")
+    except:
+        print('Failed to read output directly, will try using b2plot')
+        sut.set_b2plot_dev(verbose=verbose)
+        xp.b2plot_ready = True
+        dsa = None
+        geo = None
+        state = None
+        b2mn = None
+
+    xp.calcPsiVals(plotit=False, dsa=dsa, b2mn=b2mn, geo=geo)
+
+    xp.get_integrated_radial_fluxes(plotit=True, dsa=dsa, geo=geo, state=state, figblock=figblock)
 
 # ----------------------------------------------------------------------------------------
 

@@ -1,7 +1,12 @@
 """
 This class is used by routines in 'SOLPSxport_dr.py' to read experimental data,
 read SOLPS data, and then calculate the updated radial transport coefficients to attempt
-to match SOLPS to experimental profiles
+to match SOLPS to experimental profiles.
+
+This class is most easily implemented using commands in 'SOLPSxport_dr.py'
+
+The most up-to-date version of the code is located in a publicly available repository here, under an MIT license:
+https://github.com/ORNL-Fusion/SOLPSxport
 
 R.S. Wilcox, J.M. Canik and J.D. Lore 2020-2025
 contact: wilcoxrs@ornl.gov
