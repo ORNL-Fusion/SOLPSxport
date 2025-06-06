@@ -443,21 +443,28 @@ def increment_run(new_coefficients = 'b2.transport.inputfile_new', update_old_la
     # os.system('rm *.last10')  Doesn't work (apparently the star doesn't translate)
     
     print('modifying b2mn.dat')
+    update_timesteps(ntim_new, dtim_new)
 
-    with open('b2mn.dat', 'r') as f:
+# ----------------------------------------------------------------------------------------
+
+def update_timesteps(ntim_new, dtim_new, b2mn_fileloc='b2mn.dat'):
+    """
+    Update b2mn.dat with new time steps
+    """
+    with open(b2mn_fileloc, 'r') as f:
         lines = f.readlines()
-        
+
     # os.rename('b2mn.dat','b2mn.dat_old')  (this looks good, so just overwrite it from now on)
-    
+
     for i, line in enumerate(lines):
         if line[:13] == "'b2mndr_ntim'":
             lines[i] = lines[i][:35] + "'" + str(ntim_new) + "'\r\n"
-            
+
         if line[:13] == "'b2mndr_dtim'":
             lines[i] = lines[i][:35] + "'" + str(dtim_new) + "'\r\n"
             break
 
-    with open('b2mn.dat', 'w') as f:
+    with open(b2mn_fileloc, 'w') as f:
         for i in range(len(lines)):
             f.write(lines[i])
 
