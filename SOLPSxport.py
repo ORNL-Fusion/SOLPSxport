@@ -1725,7 +1725,7 @@ class SOLPSxport:
         for i in range(nprofs):
             ax[i].grid('on')
 
-        ax[0].set_xticks(np.arange(0.84, 1.05, 0.04))
+        ax[0].set_xticks(np.arange(0.8, np.max(psi_solps) + 0.01, 0.04))
         ax[0].set_xlim([np.min(psi_solps) - 0.01, np.max(psi_solps) + 0.004])
         ax[-1].set_xlabel(r'$\psi_N$')
         ax[0].set_title('Upstream profiles', fontsize=16)
