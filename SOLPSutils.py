@@ -389,13 +389,13 @@ def getProfDBPedFit(shotnum, timeid, runid, write_to_file=None):
 # ----------------------------------------------------------------------------------------
 
 
-def read_pfile(pfile_loc):
+def read_pfile(pfile_loc, condense_psin=True):
     """
-    Read in the kinetic profiles from a p file to be used as inputs (successfully tested 2018/1/3)
+    Read in the kinetic profiles from a p file to be used as inputs
 
     Returns a dictionary with a non-intuitive set of keys (units are included)
     
-    ** Note: pfiles don't normally go into the SOL **
+    ** Note: pfiles don't go into the SOL as a default **
     """
     with open(pfile_loc, mode='r') as pfile:
         lines = pfile.readlines()
@@ -424,8 +424,8 @@ def read_pfile(pfile_loc):
             y[i] = float(split_line[1])
             dy[i] = float(split_line[2][:-1])
 
-        # profiles[xname + '_' + yname] = x  # psinorm
-        profiles[xname] = x
+        profiles[xname + '_' + yname] = x  # psinorm
+        # profiles[xname] = x
         profiles[yname] = y
         profiles[dyname] = dy
 
@@ -435,26 +435,31 @@ def read_pfile(pfile_loc):
         if linestart >= nlines_tot:
             break
 
-    # Check if all psinorms are the same, consolidate if so (they are, don't bother separating)
+    # Check if all psinorms are the same, consolidate if so (they usually are)
 
-    # condense = True
-    # psinorm = None
-    # for k in profiles.keys():
-    #     if k is None or k=='':
-    #         continue
-    #
-    #     if k[:4] == 'psin':
-    #         if psinorm is None:
-    #             psinorm = profiles[k]
-    #
-    #         if max(abs(profiles[k] - psinorm)) > 1e-5:
-    #             condense = False
-    #             break
+    condense = True
+    psinorm = None
+    for k in profiles.keys():
+        if k is None or k=='':
+            continue
 
-    # if condense:
-    #     profiles = {key: value for key, value in profiles.items()
-    #                 if key[:4] != 'psin' or key is None or key==''}
-    #     profiles['psinorm'] = psinorm
+        if k[:4] == 'psin':
+            if psinorm is None:
+                psinorm = profiles[k]
+                continue
+
+            if len(profiles[k]) != len(psinorm):
+                condense = False
+                break
+
+            if max(abs(profiles[k] - psinorm)) > 1e-5:
+                condense = False
+                break
+
+    if condense and condense_psin:
+        profiles = {key: value for key, value in profiles.items()
+                    if key[:4] != 'psin' or key is None or key==''}
+        profiles['psinorm'] = psinorm
 
     return profiles
 
