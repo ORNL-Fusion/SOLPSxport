@@ -271,6 +271,13 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                      rad_loc_for_exp_decay=rad_loc_for_exp_decay,
                      plot_gradient_method=(chii_use_grad or chie_use_grad))
 
+    if ti_decay_len is not None:
+        print("Enforcing decay length for Ti in SOL of " + str(ti_decay_len*100) + " cm")
+    if te_decay_len is not None:
+        print("Enforcing decay length for Te in SOL of " + str(te_decay_len*100) + " cm")
+    if ne_decay_len is not None:
+        print("Enforcing decay length for ne in SOL of " + str(ne_decay_len*100) + " cm")
+
     print("Writing to: " + new_filename)
     xp.writeXport(new_filename=new_filename, chie_use_grad=chie_use_grad, chii_use_grad=chii_use_grad,
                   chii_eq_chie=chii_eq_chie, update_d_only=update_d_only)
@@ -320,7 +327,8 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
         if gammaD[0] > 0.05*np.max(gammaD):
             print("\nInjected D particles escaping radial grid boundary: {:4.1f}%".format(100*gammaD[-1] / gammaD[0]))
         else:
-            print('\nSep. D particle flux escaping radial grid boundary: {:4.1f}%'.format(100*gammaD[-1]/gammaD[len(psin_solps)/2]))
+            i_sep = np.argmin(np.abs(dsa))
+            print('\nSep. D particle flux escaping radial grid boundary: {:4.1f}%'.format(100*gammaD[-1]/gammaD[i_sep]))
 
         print("Injected energy flux escaping radial grid boundary: {:4.1f}%\n".
               format(100*xp.data['solpsData']['profiles']['Qtot'][-1]/xp.data['solpsData']['profiles']['Qtot'][0]))
@@ -453,8 +461,6 @@ def update_timesteps(ntim_new, dtim_new, b2mn_fileloc='b2mn.dat'):
     """
     with open(b2mn_fileloc, 'r') as f:
         lines = f.readlines()
-
-    # os.rename('b2mn.dat','b2mn.dat_old')  (this looks good, so just overwrite it from now on)
 
     for i, line in enumerate(lines):
         if line[:13] == "'b2mndr_ntim'":
