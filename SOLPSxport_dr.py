@@ -78,7 +78,7 @@ from scipy import interpolate
 
 import SOLPSutils as sut
 import SOLPSxport as sxp
-import inspect
+
 try:
     import json
 except:
@@ -170,6 +170,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
     """
     if 'json' in sys.modules:
         # Write dict of last call arguments as json file
+        import inspect
         frame = inspect.currentframe()
         args, _, _, values = inspect.getargvalues(frame)
         argvals = {}
@@ -191,6 +192,9 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
             ptimeid = 0
     ptimeid = int(ptimeid)
     shotnum = int(shotnum)
+
+    if ti_eq_te:
+        ti_decay_len = None
 
     print("Initializing SOLPSxport")
     xp = sxp.SOLPSxport(workdir=os.getcwd(), gfile_loc=gfile_loc, impurity_list=impurity_list)
@@ -222,7 +226,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
         print("Running getSOLPSlast10Profs")
         xp.getSOLPSlast10Profs(plotit=plotall, use_existing_last10=use_existing_last10)
     else:
-        print("Getting OMP profiles from last 10 time steps in b2time")
+        print("Getting OMP profiles (jxa) from last 10 time steps in b2time")
         xp.getlast10profs_b2time(reject_fewer_than_10=reject_fewer_than_10, plotit=plotall)
         xp.write_last10files()
     # xp.getProfsOMFIT(prof_folder = prof_folder, prof_filename_prefix = prof_filename_prefix,
@@ -248,8 +252,8 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
     if ti_fileloc:
         xp.load_ti(ti_fileloc=ti_fileloc, verbose=True)
 
-    if ti_eq_te:
-        print("** Forcing target Ti = Te **")
+    if ti_eq_te:  # any profile shifting will be done in calcXportCoef
+        print("** Forcing experimental Ti = Te **")
         xp.data['expData']['fitProfs']['tipsi'] = xp.data['expData']['fitPsiProf']
         xp.data['expData']['fitProfs']['tiprof'] = xp.data['expData']['fitProfs']['teprof']
 
@@ -265,18 +269,11 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
                      vrc_mag=vrc_mag, verbose=verbose, Dn_max=Dn_max, update_d_only=update_d_only,
                      fractional_change=fractional_change, elec_prof_rad_shift=elec_prof_rad_shift,
                      chii_min=chii_min, chii_max=chii_max, chie_min=chie_min, chie_max=chie_max,
-                     chii_eq_chie=chii_eq_chie, figblock=figblock, use_ratio_bc=use_ratio_bc,
+                     chii_eq_chie=chii_eq_chie, ti_eq_te=ti_eq_te, use_ratio_bc=use_ratio_bc,
                      ti_decay_len=ti_decay_len, te_decay_len=te_decay_len, ne_decay_len=ne_decay_len,
                      ti_decay_min=ti_decay_min, te_decay_min=te_decay_min, ne_decay_min=ne_decay_min,
-                     rad_loc_for_exp_decay=rad_loc_for_exp_decay,
+                     rad_loc_for_exp_decay=rad_loc_for_exp_decay, figblock=figblock,
                      plot_gradient_method=(chii_use_grad or chie_use_grad))
-
-    if ti_decay_len is not None:
-        print("Enforcing decay length for Ti in SOL of " + str(ti_decay_len*100) + " cm")
-    if te_decay_len is not None:
-        print("Enforcing decay length for Te in SOL of " + str(te_decay_len*100) + " cm")
-    if ne_decay_len is not None:
-        print("Enforcing decay length for ne in SOL of " + str(ne_decay_len*100) + " cm")
 
     print("Writing to: " + new_filename)
     xp.writeXport(new_filename=new_filename, chie_use_grad=chie_use_grad, chii_use_grad=chii_use_grad,

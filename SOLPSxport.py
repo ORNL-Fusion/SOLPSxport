@@ -560,6 +560,7 @@ class SOLPSxport:
 
         # Modify Ti profile to decay exponentially outside separatrix
         if decay_length is not None:
+            print('Applying ' + str(decay_length*100) + ' cm decay length to Ti outside psin=' + str(rad_loc_for_exp_decay))
             outer_inds = np.where(tiexppsi >= rad_loc_for_exp_decay)[0]
             val_at_exp_decay_start = np.interp(rad_loc_for_exp_decay, tiexppsi, ti_mod)
 
@@ -625,6 +626,7 @@ class SOLPSxport:
 
         # Modify profile to decay exponentially outside separatrix
         if decay_length is not None:
+            print('Applying ' + str(decay_length * 100) + ' cm decay length to Te outside psin=' + str(rad_loc_for_exp_decay))
             outer_inds = np.where(teexppsi >= rad_loc_for_exp_decay)[0]
             val_at_exp_decay_start = np.interp(rad_loc_for_exp_decay, teexppsi, te_mod)
 
@@ -672,6 +674,7 @@ class SOLPSxport:
 
         # Modify profile to decay exponentially outside separatrix
         if decay_length is not None:
+            print('Applying ' + str(decay_length * 100) + ' cm decay length to ne outside psin=' + str(rad_loc_for_exp_decay))
             outer_inds = np.where(neexppsi >= rad_loc_for_exp_decay)[0]
             val_at_exp_decay_start = np.interp(rad_loc_for_exp_decay, neexppsi, ne_mod)
 
@@ -1134,7 +1137,7 @@ class SOLPSxport:
     def calcXportCoef(self, plotit = True, Dn_min = 0.001, chie_min = 0.01, chii_min = 0.01,
                       Dn_max = 100, chie_max = 400, chii_max = 400, vrc_mag=0.0, 
                       reduce_Ti_fileloc = None, plot_gradient_method = False, update_d_only=False,
-                      fractional_change = 1, elec_prof_rad_shift = 0, chii_eq_chie = False,
+                      fractional_change = 1, elec_prof_rad_shift = 0, chii_eq_chie = False, ti_eq_te = False,
                       use_ratio_bc = True, debug_plots = False, verbose = False, figblock = False,
                       ti_decay_len = 0.015, te_decay_len = None, ne_decay_len = None, rad_loc_for_exp_decay = 1.0,
                       ti_decay_min = 1, te_decay_min = 1, ne_decay_min = 1e18):
@@ -1203,7 +1206,6 @@ class SOLPSxport:
         # ne and Gamma_e
 
         if ne_decay_len is not None:
-            print("Applying decay to ne profile")
             self.modify_ne(sol_points = 10, max_psin = np.max(psi_solps) + 0.001,
                            decay_length = ne_decay_len, rad_loc_for_exp_decay = rad_loc_for_exp_decay,
                            ne_min = ne_decay_min, plotit = debug_plots)
@@ -1221,7 +1223,7 @@ class SOLPSxport:
         gnexp_dsafunc = interpolate.interp1d(dsa_neprofile, gnexp, kind='linear', fill_value = 'extrapolate')
         gnexp_solpslocs = gnexp_dsafunc(dsa)
         if (np.max(gnexp_solpslocs) > 0):
-            print("WARNING: Positive n gradient found at dsa =",dsa[np.argmax(gnexp_solpslocs)])
+            print("WARNING: Positive density gradient found at dsa =",dsa[np.argmax(gnexp_solpslocs)])
             print("         Modify fits or min Dn value will be used here")
         
         # psi_to_dsa_func function only valid in SOLPS range,
@@ -1255,7 +1257,6 @@ class SOLPSxport:
         
         # Te and ke
         if te_decay_len is not None:
-            print("Applying decay to Te profile")            
             self.modify_te(sol_points = 10, max_psin = np.max(psi_solps) + 0.001,
                            decay_length = te_decay_len, rad_loc_for_exp_decay = rad_loc_for_exp_decay,
                            te_min = te_decay_min, plotit = debug_plots)
@@ -1299,26 +1300,35 @@ class SOLPSxport:
         
         # Ti and ki
 
-        if reduce_Ti_fileloc or (ti_decay_len is not None):
-            self.modify_ti(ratio_fileloc = reduce_Ti_fileloc, sol_points = 10, max_psin = np.max(psi_solps) + 0.001,
-                           decay_length = ti_decay_len, rad_loc_for_exp_decay = rad_loc_for_exp_decay,
-                           plotit = debug_plots, reduce_ti = (reduce_Ti_fileloc is not None), ti_min = ti_decay_min)
-
-            tiexp = 1.0e3*self.data['expData']['fitProfs']['ti_mod']
-            tiexppsi = self.data['expData']['fitProfs']['ti_mod_psi']  # + exp_prof_rad_shift
+        if ti_eq_te:
+            tiexp = teexp
+            tiexppsi = teexppsi
+            self.data['expData']['fitProfs']['tiprof'] = tiexp * 1e-3
+            self.data['expData']['fitProfs']['tipsi'] = tiexppsi
+            self.data['expData']['fitProfs']['ti_mod'] = tiexp * 1e-3
+            self.data['expData']['fitProfs']['ti_mod_psi'] = tiexppsi
 
         else:
-            tiexp = 1.0e3*self.data['expData']['fitProfs']['tiprof']
-            tiexppsi = self.data['expData']['fitProfs']['tipsi']  # + exp_prof_rad_shift
+            if reduce_Ti_fileloc or (ti_decay_len is not None):
+                self.modify_ti(ratio_fileloc = reduce_Ti_fileloc, sol_points = 10, max_psin = np.max(psi_solps) + 0.001,
+                               decay_length = ti_decay_len, rad_loc_for_exp_decay = rad_loc_for_exp_decay,
+                               plotit = debug_plots, reduce_ti = (reduce_Ti_fileloc is not None), ti_min = ti_decay_min)
+
+                tiexp = 1.0e3*self.data['expData']['fitProfs']['ti_mod']
+                tiexppsi = self.data['expData']['fitProfs']['ti_mod_psi']
+
+            else:
+                tiexp = 1.0e3*self.data['expData']['fitProfs']['tiprof']
+                tiexppsi = self.data['expData']['fitProfs']['tipsi']
         
         dsa_tiprofile = psi_to_dsa_func(tiexppsi)
-        
+
         gtiold = np.gradient(tiold) / np.gradient(dsa)
         gtiexp = np.gradient(tiexp) / np.gradient(dsa_tiprofile)
-        
+
         gtiexp_dsafunc = interpolate.interp1d(dsa_tiprofile, gtiexp, kind='linear', fill_value = 'extrapolate')
         gtiexp_solpslocs = gtiexp_dsafunc(dsa)
-        if (np.max(gtiexp_solpslocs) > 0):
+        if np.max(gtiexp_solpslocs) > 0:
             print("WARNING: Positive Ti gradient found at dsa =",dsa[np.argmax(gtiexp_solpslocs)])
             print("         Modify fits or min chii value will be used here")
             
@@ -1471,8 +1481,8 @@ class SOLPSxport:
 
     # ----------------------------------------------------------------------------------------
 
-    def plotXportCoef(self, figblock=False, figsize=(14,7), plot_Ti = True, plot_older = False,
-                      include_gradient_method = False, update_d_only = False):
+    def plotXportCoef(self, figblock=False, figsize=(14,7), plot_Ti = True, ti_eq_te = False,
+                      plot_older = False, include_gradient_method = False, update_d_only = False):
         """
         Plot the upstream profiles from SOLPS compared to the experiment
         along with the corresponding updated transport coefficients
@@ -1506,12 +1516,16 @@ class SOLPSxport:
             neexp = 1.0e20*self.data['expData']['fitProfs']['neprof']      
             neexppsi = self.data['expData']['fitPsiProf'] + elec_prof_shift
 
-        if 'ti_mod' in self.data['expData']['fitProfs'].keys():
-            tiexp = 1.0e3*self.data['expData']['fitProfs']['ti_mod']
-            tiexppsi = self.data['expData']['fitProfs']['ti_mod_psi']  #+ exp_prof_shift
+        if ti_eq_te:
+            tiexp = teexp
+            tiexppsi = teexppsi
         else:
-            tiexp = 1.0e3*self.data['expData']['fitProfs']['tiprof']            
-            tiexppsi = self.data['expData']['fitProfs']['tipsi']  # + exp_prof_shift
+            if 'ti_mod' in self.data['expData']['fitProfs'].keys():
+                tiexp = 1.0e3*self.data['expData']['fitProfs']['ti_mod']
+                tiexppsi = self.data['expData']['fitProfs']['ti_mod_psi']
+            else:
+                tiexp = 1.0e3*self.data['expData']['fitProfs']['tiprof']
+                tiexppsi = self.data['expData']['fitProfs']['tipsi']
 
         psi_solps = self.data['solpsData']['psiSOLPS']
         neold = self.data['solpsData']['last10']['ne']
@@ -1633,7 +1647,12 @@ class SOLPSxport:
 
         ax[1, -1].legend(loc='best', fontsize=10)
         if xlims[0] > 0.8:
-            ax[0, 0].set_xticks(np.arange(0.84, 1.05, 0.04))
+            new_xticks = np.arange(0.84, xlims[1]+0.001, 0.04)
+            if len(new_xticks) > 6:
+                new_xticks = np.arange(0.8, xlims[1] + 0.001, 0.05)
+                if len(new_xticks) > 7:
+                    new_xticks = np.arange(0.8, xlims[1] + 0.001, 0.1)
+            ax[0, 0].set_xticks(new_xticks)
         ax[0, 0].set_xlim(xlims)
         plt.tight_layout()
 
