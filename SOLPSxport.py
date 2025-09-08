@@ -936,7 +936,7 @@ class SOLPSxport:
     
     def getjxafluxprofs(self, plotit = False, b2mn = None, geo = None, state = None, dsa = None, xport = None):
         """
-        Tries to get flux profiles from solps output, falls back to 
+        Tries to get particle flux profiles from solps output, falls back to
         Calls b2plot to get the particle flux profiles
         """
         try:
@@ -1177,7 +1177,7 @@ class SOLPSxport:
         # Load data that was read from SOLPS .last10 profiles
 
         psi_solps = self.data['solpsData']['psiSOLPS']
-        dsa = self.data['solpsData']['dsa']
+        dsa = self.data['solpsData']['dsa'].copy()
         neold = self.data['solpsData']['last10']['ne']
         dold = self.data['solpsData']['last10']['dn']
         teold = self.data['solpsData']['last10']['te']
@@ -1222,7 +1222,7 @@ class SOLPSxport:
 
         gnexp_dsafunc = interpolate.interp1d(dsa_neprofile, gnexp, kind='linear', fill_value = 'extrapolate')
         gnexp_solpslocs = gnexp_dsafunc(dsa)
-        if (np.max(gnexp_solpslocs) > 0):
+        if np.max(gnexp_solpslocs) > 0:
             print("WARNING: Positive density gradient found at dsa =",dsa[np.argmax(gnexp_solpslocs)])
             print("         Modify fits or min Dn value will be used here")
         
@@ -1242,8 +1242,8 @@ class SOLPSxport:
         # this method assumes the solution is already close (ok in some cases, but should usually be avoided)
         dnew_ratio = (gnold / gnexp_solpslocs_dsa) * dold
 
-        flux = fluxD - fluxConv  # Conductive portion of the total flux
-        dnew_flux = -flux / gnexp_solpslocs
+        partfluxCond = fluxD - fluxConv  # Conductive portion of the total particle flux
+        dnew_flux = -partfluxCond / gnexp_solpslocs
 
         if use_ratio_bc:
             dnew_ratio[-1] = dold[-1] * neold[-1] / expden_dsa_func(dsa[-1])
@@ -2091,18 +2091,24 @@ class SOLPSxport:
         
         rn = self.data['solpsData']['last10']['rx']
         dn = self.data['solpsData']['xportCoef']['dnew_flux'] * scale_D
-        if chie_use_grad:
-            ke = self.data['solpsData']['xportCoef']['kenew_ratio']
-        else:
-            ke = self.data['solpsData']['xportCoef']['kenew_flux']
 
-        if chii_eq_chie:
-            ki = ke
+        if update_d_only:
+            ke = self.data['solpsData']['last10']['ke']
+            ki = self.data['solpsData']['last10']['ki']
+
         else:
-            if chii_use_grad:
-                ki = self.data['solpsData']['xportCoef']['kinew_ratio']
+            if chie_use_grad:
+                ke = self.data['solpsData']['xportCoef']['kenew_ratio']
             else:
-                ki = self.data['solpsData']['xportCoef']['kinew_flux']
+                ke = self.data['solpsData']['xportCoef']['kenew_flux']
+
+            if chii_eq_chie:
+                ki = ke
+            else:
+                if chii_use_grad:
+                    ki = self.data['solpsData']['xportCoef']['kinew_ratio']
+                else:
+                    ki = self.data['solpsData']['xportCoef']['kinew_flux']
 
         vrc = self.data['solpsData']['xportCoef']['vr_carbon']
 
@@ -2116,7 +2122,7 @@ class SOLPSxport:
         # interpolated onto the SOLPS grid correctly
         delta_step = 0.1*np.min(np.abs(np.diff(rn)))
         
-        # Remove any small negative diffusivities and throw a warning
+        # Remove any negative diffusivities and throw a warning
         
         for i in range(len(rn)):
             if dn[i] < 0:
@@ -2223,16 +2229,14 @@ class SOLPSxport:
 
         # Heat fluxes
 
-        if not update_d_only:
-
-            for j in species_nums:
-                inlines.append('ndata( 1, 3, {}) = {} ,\n'.format(j, len(rn)))
-                for i in range(len(rn)):
-                    inlines.append("tdata(1, {}, 3, {}) = {:e} , tdata(2, {}, 3, {}) = {:e} ,\n".format(i+1, j, rn[i], i+1, j, ki[i]))
-
-            inlines.append('ndata( 1, 4, 1) = {} ,\n'.format(len(rn)))
+        for j in species_nums:
+            inlines.append('ndata( 1, 3, {}) = {} ,\n'.format(j, len(rn)))
             for i in range(len(rn)):
-                inlines.append("tdata(1, {}, 4, 1) = {:e} , tdata(2, {}, 4, 1) = {:e} ,\n".format(i+1, rn[i], i+1, ke[i]))
+                inlines.append("tdata(1, {}, 3, {}) = {:e} , tdata(2, {}, 3, {}) = {:e} ,\n".format(i+1, j, rn[i], i+1, j, ki[i]))
+
+        inlines.append('ndata( 1, 4, 1) = {} ,\n'.format(len(rn)))
+        for i in range(len(rn)):
+            inlines.append("tdata(1, {}, 4, 1) = {:e} , tdata(2, {}, 4, 1) = {:e} ,\n".format(i+1, rn[i], i+1, ke[i]))
 
         # if carbon:
         #     # Ti is the same for all species, but n changes per species, so chi_i is set separately
