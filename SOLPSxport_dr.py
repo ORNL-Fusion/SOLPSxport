@@ -286,18 +286,23 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
         first_sol_ind = psin_solps.index(min([i for i in psin_solps if i > 1]))
         dperp_pfr = xp.data['solpsData']['xportCoef']['dnew_flux'][first_sol_ind]
 
-        if chie_use_grad:
-            chieperp_pfr = xp.data['solpsData']['xportCoef']['kenew_ratio'][first_sol_ind]
-        else:
-            chieperp_pfr = xp.data['solpsData']['xportCoef']['kenew_flux'][first_sol_ind]
+        if update_d_only:
+            chieperp_pfr = None  # Do not modify
+            chiiperp_pfr = None  # Do not modify
 
-        if chii_eq_chie:
-            chiiperp_pfr = chieperp_pfr
         else:
             if chie_use_grad:
-                chiiperp_pfr = xp.data['solpsData']['xportCoef']['kinew_ratio'][first_sol_ind]
+                chieperp_pfr = xp.data['solpsData']['xportCoef']['kenew_ratio'][first_sol_ind]
             else:
-                chiiperp_pfr = xp.data['solpsData']['xportCoef']['kinew_flux'][first_sol_ind]
+                chieperp_pfr = xp.data['solpsData']['xportCoef']['kenew_flux'][first_sol_ind]
+
+            if chii_eq_chie:
+                chiiperp_pfr = chieperp_pfr
+            else:
+                if chie_use_grad:
+                    chiiperp_pfr = xp.data['solpsData']['xportCoef']['kinew_ratio'][first_sol_ind]
+                else:
+                    chiiperp_pfr = xp.data['solpsData']['xportCoef']['kinew_flux'][first_sol_ind]
 
         sut.new_b2xportparams(fileloc='./b2.transport.parameters',
                               dperp=dperp_pfr, chieperp=chieperp_pfr, chiiperp=chiiperp_pfr, verbose=True)
@@ -340,7 +345,7 @@ def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
     interp_te_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'], xp.data['solpsData']['last10']['te'])
     interp_ti_solps = interpolate.interp1d(xp.data['solpsData']['psiSOLPS'], xp.data['solpsData']['last10']['ti'])
 
-    print("\nUsing electron profile shift of: %.3f (in psiN)\n"%elec_prof_rad_shift)
+    print("\nUsing electron profile shift of: %.4f (in psiN)\n"%elec_prof_rad_shift)
     print("        ne_sep (m^-3)   Te_sep (eV)   Ti_sep (eV)   ne_core (m^-3)")
     print("Expt:    {:.3e}       {:6.2f}        {:6.2f}        {:.3e}".format(interp_ne_expt(1.0-elec_prof_rad_shift)*1e20,
                                                                               interp_te_expt(1.0-elec_prof_rad_shift)*1000,
