@@ -1,4 +1,8 @@
 """
+References for this procedure:
+https://doi.org/10.1088/1741-4326/ae1bb9
+https://doi.org/10.1016/j.jnucmat.2010.11.084
+
 This driver is used to generate new b2.transport.inputfile and
 b2.transport.parameters files for SOLPS that will come closer to
 matching the experimental upstream profiles. If things go well, after
@@ -63,9 +67,6 @@ contact: wilcoxrs@ornl.gov
 
 The most up-to-date version of the code is located in a publicly available repository here, under an MIT license:
 https://github.com/ORNL-Fusion/SOLPSxport
-
-Reference for this procedure:
-https://doi.org/10.1016/j.jnucmat.2010.11.084
 """
 
 import os
