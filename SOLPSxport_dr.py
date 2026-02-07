@@ -1,7 +1,15 @@
 """
+R.S. Wilcox, J.M. Canik and J.D. Lore 2020-2026
+contact: wilcoxrs@ornl.gov
+
 References for this procedure, methodology and tips:
+
+R.S. Wilcox et al., Nucl. Fusion 2026:
 https://doi.org/10.1088/1741-4326/ae1bb9
+
+J.M. Canik et al., J. Nucl. Mat. 2010:
 https://doi.org/10.1016/j.jnucmat.2010.11.084
+
 
 This driver is used to generate new b2.transport.inputfile and
 b2.transport.parameters files for SOLPS that will come closer to
@@ -18,7 +26,7 @@ experimental gradients, but the absolute values will not necessarily
 match if core flux boundary conditions are used (which they should be!)
 and the experimental profiles do not diminish to zero at the grid boundary.
 
-**So far this is only tested for cases with D or D+C, cases with other impurities may not work yet**
+**So far this is only tested for cases with D or D+C, cases with other impurities may not work without modification**
 
 
 Instructions for command line call:
@@ -61,9 +69,6 @@ This usually requires several iterations to match the experimental profiles well
 Once you've figured out all the settings you need and are iterating on a run to
 converge to the solution for transport coefficients, the routine "increment_run" can
 be useful to do this all quickly
-
-R.S. Wilcox, J.M. Canik and J.D. Lore 2020-2025
-contact: wilcoxrs@ornl.gov
 
 The most up-to-date version of the code is located in a publicly available repository here, under an MIT license:
 https://github.com/ORNL-Fusion/SOLPSxport
