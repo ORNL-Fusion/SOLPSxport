@@ -902,21 +902,27 @@ def avg_like_b2plot_2D(slice2D, axis=1):
 
 # ----------------------------------------------------------------------------------------
 
-def read_transport_files(fileloc, dsa=None, geo=None, state=None, force_read_inpufile=False):
-    # Attempts to get transport coefficient data, including pinch term.
-    # Fills using b2.transport.parameters, then b2.transport.inputfile if
-    # b2mn.dat indicates inputfile is active. 
-    #
-    # Uses f90nml, but this should nominally be doable with the routines above
-    #
-    # Inputs:
-    # fileloc : location of b2mn.dat, b2.transport.*
-    # dsa : dsa from read_dsa (or whatever dx_sep to interpolate onto)
-    # geo : geometry dict from read_b2fgmtry 
-    # state : state dict from read_b2fstate
-    #
-    # Note, geo and state only used to get dimensions, only really need
-    # geo['ny'], state['ns']
+def read_transport_files(parameters_fileloc=None, dsa=None, geo=None, state=None, force_read_inpufile=False):
+    """
+    Attempts to get transport coefficient data, including pinch term.
+    Fills using b2.transport.parameters, then b2.transport.inputfile if
+    b2mn.dat indicates inputfile is active.
+
+    Uses f90nml, but this should nominally be doable with the routines above
+
+    Inputs:
+      fileloc : location of b2mn.dat, b2.transport.*
+      dsa : dsa from read_dsa (or whatever dx_sep to interpolate onto)
+      geo : geometry dict from read_b2fgmtry
+      state : state dict from read_b2fstate
+
+    Note, geo and state only used to get dimensions, only really need geo['ny'], state['ns']
+
+    Can get f90nml on Omega now:
+    $ module unload python/3.7.9
+    $ module load python/3.11
+    """
+
     
     if dsa is None:
         dsa = read_dsa('dsa')
@@ -930,6 +936,9 @@ def read_transport_files(fileloc, dsa=None, geo=None, state=None, force_read_inp
     read_inputfile = False
     if force_read_inpufile:
         read_inputfile = True
+
+    if parameters_fileloc is None:
+        parameters_fileloc = 'b2.transport.parameters'
 
     # Read b2mn.dat unless overridden by input argument
     if not read_inputfile:
@@ -956,10 +965,13 @@ def read_transport_files(fileloc, dsa=None, geo=None, state=None, force_read_inp
         parser.global_start_index=1
     except:
         print('f90nml required to read transport input files!')
+        print("If you're running this on Omega, try to unload your current Python module and load 3.11, something like this:")
+        print("$ module unload python/3.7.9")
+        print("$ module load python/3.11")
         return None
     
     try:
-        nml = parser.read('b2.transport.parameters')
+        nml = parser.read(parameters_fileloc)
         this = nml['transport']['parm_dna']
         for ispec in range(len(this)):
             dn[:,ispec] = this[ispec]

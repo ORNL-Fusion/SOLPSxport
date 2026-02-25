@@ -1043,9 +1043,17 @@ class SOLPSxport:
                 
     # ----------------------------------------------------------------------------------------
     
-    def getSOLPSCarbonProfs(self, plotit = False, verbose=True, dsa = None, b2mn = None, geo = None, state = None, xport = None):
+    def getSOLPSCarbonProfs(self, plotit = False, verbose=True, dsa = None, b2mn = None, geo = None, state = None, xport = None,
+                            ignore_vr = True):
         """
         Calls b2plot to get the carbon profiles
+
+        Getting transport requires f90nml, which isn't in the default Python distribution on Omega as of Feb 2026,
+        but the only thing that uses it is vr_carbon, so just ignore that term as a default
+
+        Can get f90nml on Omega now:
+        $ module unload python/3.7.9
+        $ module load python/3.11
         """
         try:
             if dsa is None:
@@ -1056,7 +1064,7 @@ class SOLPSxport:
                 b2mn = sut.scrape_b2mn("b2mn.dat")                
             if state is None:
                 state = sut.read_b2fstate("b2fstate")
-            if xport is None:
+            if xport is None and not ignore_vr:
                 xport = sut.read_transport_files(".", dsa=dsa, geo=geo, state=state)
 
             sy = sut.avg_like_b2plot(geo['gs'][b2mn['jxa']+1,:,1])            
@@ -1064,7 +1072,8 @@ class SOLPSxport:
             nd_solps = state['na'][b2mn['jxa']+1,:,1]
             x_nc = dsa                   
             flux_carbon = sut.avg_like_b2plot(state['fna'][b2mn['jxa']+1,:,1,8])/sy
-            vr_carbon = sut.avg_like_b2plot(xport['vlay'][:,8])/sy
+            if not ignore_vr:
+                vr_carbon = sut.avg_like_b2plot(xport['vlay'][:,8])/sy
 
         except:
             print('  Falling back to b2plot to get carbon fluxes')
@@ -1088,7 +1097,8 @@ class SOLPSxport:
         self.data['solpsData']['profiles']['nC'] = np.array(nc_solps)
         self.data['solpsData']['profiles']['nD'] = np.array(nd_solps)
         self.data['solpsData']['profiles']['fluxC'] = np.array(flux_carbon)
-        self.data['solpsData']['profiles']['vrC'] = np.array(vr_carbon)
+        if not ignore_vr:
+            self.data['solpsData']['profiles']['vrC'] = np.array(vr_carbon)
         
         if plotit:
             if 'psiSOLPS' in self.data['solpsData']:  # plot in psiN space if it's been calculated
@@ -1120,7 +1130,8 @@ class SOLPSxport:
                 ax[1].plot(x_nc, self.data['solpsData']['profiles']['fluxTot'],
                            '--bo', lw=2, zorder = 1, label = 'Total electron flux')
 
-            ax[2].plot(x_nc, vr_carbon, '-kx', lw = 2)
+            if not ignore_vr:
+                ax[2].plot(x_nc,vr_carbon, '-kx', lw = 2)
             ax[2].set_ylabel('V$_{r,C}$')
             ax[2].grid('on')
             
