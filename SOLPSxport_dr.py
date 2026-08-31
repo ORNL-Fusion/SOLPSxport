@@ -76,6 +76,7 @@ https://github.com/ORNL-Fusion/SOLPSxport
 
 import os
 import sys
+import shutil
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -101,9 +102,9 @@ plt.rcParams.update({'mathtext.default': 'regular'})
 def main(gfile_loc = None, new_filename='b2.transport.inputfile_new',
          profiles_fileloc=None, shotnum=None, ptimeid=None, prunid=None,
          nefit='tanh', tefit='tanh', ncfit='spl', chii_eq_chie = False, ti_eq_te = False,
-         Dn_min=0.001, vrc_mag=0.0, Dn_max=200, use_ratio_bc = True, update_d_only=False,
+         Dn_min=0.001, vrc_mag=0.0, Dn_max=20, use_ratio_bc = True, update_d_only=False,
          chie_use_grad = False, chii_use_grad = False, new_b2xportparams = True,
-         chie_min = 0.01, chii_min = 0.01, chie_max = 400, chii_max = 400,
+         chie_min = 0.01, chii_min = 0.01, chie_max = 50, chii_max = 50,
          reduce_Ti_fileloc = None, update_old_last10s = False, reject_fewer_than_10=True,
          fractional_change = 1, elec_prof_rad_shift = 0, ti_fileloc = None,
          impurity_list = ['c'], use_existing_last10= False, plot_xport_coeffs=True,
@@ -413,7 +414,7 @@ if __name__ == '__main__':
 # ----------------------------------------------------------------------------------------
 
 def increment_run(new_coefficients = 'b2.transport.inputfile_new', update_old_last10s = True,
-                  new_b2xportparams = True, ntim_new = 100, dtim_new = '1.0e-6'):
+                  new_b2xportparams = True, ntim_new = 100, dtim_new = '1.0e-6', verbose=True):
     """
     After running the main routine, if you're happy with the new transport coefficients,
     run this to save the previous iteration of transport coefficients and prepare to
@@ -440,9 +441,10 @@ def increment_run(new_coefficients = 'b2.transport.inputfile_new', update_old_la
         inc_num = np.max(all_incs)
     else:
         inc_num = 0
-    os.rename('b2.transport.inputfile', 'b2.transport.inputfile' + str(inc_num+1))
-    os.system('cp b2fstate b2fstati')
-    os.system('cp b2fstate b2fstate' + str(inc_num+1))
+    if os.path.exists('b2.transport.inputfile'):
+        os.rename('b2.transport.inputfile', 'b2.transport.inputfile' + str(inc_num+1))
+    shutil.copyfile("b2fstate", "b2fstati")
+    shutil.copyfile("b2fstate", "b2fstate" + str(inc_num+1))
     os.rename(new_coefficients, 'b2.transport.inputfile')
     print('Saved previous transport coefficients under iteration ' + str(inc_num+1))
     if new_b2xportparams:
@@ -451,7 +453,7 @@ def increment_run(new_coefficients = 'b2.transport.inputfile_new', update_old_la
 
     # os.remove('run.log')  # Leave this in case there was a mistake or you want to make changes
     if update_old_last10s:
-        update_old_last10_files()
+        update_old_last10_files(verbose=verbose)
     for filename in allfiles:
         if filename[-7:] == '.last10':
             os.remove(filename)
@@ -484,14 +486,17 @@ def update_timesteps(ntim_new, dtim_new, b2mn_fileloc='b2mn.dat'):
 
 # ----------------------------------------------------------------------------------------
 
-def update_old_last10_files():
+def update_old_last10_files(verbose=True):
     """
     Copy last10 files to .old so that previous profiles can be plotted on next call
     """
     import shutil
 
     for prof in ['ne', 'dn', 'te', 'ke', 'ti', 'ki']:
-        shutil.copyfile(prof+'3da.last10', prof+'3da.last10.old')
+        try:
+            shutil.copyfile(prof+'3da.last10', prof+'3da.last10.old')
+        except FileNotFoundError:
+            print("Can't find last10 file for " + prof + ", profile not preserved as 'old'")
 
 # ----------------------------------------------------------------------------------------
 

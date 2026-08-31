@@ -83,10 +83,14 @@ def calcTanhMulti(c, x, param=None):
 # ----------------------------------------------------------------------------------------            
 
 
-def loadMDS(tree, tag, shot, quiet=True):
-    import MDSplus
+def loadMDS(tree, tag, shot, quiet=True, mds_connection=None):
 
-    c = MDSplus.Connection('atlas.gat.com')
+    if mds_connection is None:
+        import MDSplus
+        c = MDSplus.Connection('atlas.gat.com')
+    else:
+        c = mds_connection
+
     c.openTree(tree, shot)
 
     try:
